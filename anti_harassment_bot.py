@@ -10,49 +10,6 @@ from dateutil import tz
 import csv
 import yaml
 
-#print a separator line
-print('-'*10)
-
-#print out current time
-t = time.localtime()
-current_time = time.strftime("%Y-%m-%d %H:%M:%S", t)
-print('TIME:',current_time)
-
-
-#generate paths for relavant files
-pwd = path.dirname(path.realpath(__file__))
-conf_path = path.join(pwd,'conf.yaml')
-white_list_path = path.join(pwd,'white_list.csv')
-block_list_path = path.join(pwd,'block_list.yaml')
-
-with open(conf_path, 'r') as stream:
-    conf = yaml.safe_load(stream)
-#load secrets
-secrets = conf['secrets']
-#load my own id
-MY_ID = conf['MY_ID']
-
-#load the ids of recently blocked accounts
-block_list = dict()
-if path.exists(block_list_path):  
-    with open(block_list_path,'r') as stream:
-        block_list = yaml.safe_load(stream)
-
-#load the whitelist which contains friendly ids    
-WHITE_LIST = dict()
-if path.exists(white_list_path):
-    with open(white_list_path, "r") as f:
-        reader = csv.DictReader(f)
-        WHITE_LIST = {int(row['twitter_id']):row['name'] for row in reader}
-
-# Twitter API V2
-client = tweepy.Client(
-    bearer_token=secrets['BEARER_TOKEN'],
-    consumer_key=secrets['CONSUMER_KEY'], consumer_secret=secrets['CONSUMER_SECRET'],
-    access_token=secrets['ACCESS_TOKEN'], access_token_secret=secrets['ACCESS_SECRET'],
-    wait_on_rate_limit=True
-)
-
 
 def get_id_by_username(username):
     response = client.get_user(username=username)
@@ -97,24 +54,75 @@ def junk_id_oracle(author_id):
 #find id by username
 #test_id = get_id_by_username("rats_in_maze")
 #print(type(test_id), test_id) #the type is int
-
-#get latest mentions
-tweets = client.get_users_mentions(id=MY_ID, max_results=20, tweet_fields=['context_annotations','created_at','geo'], expansions='author_id')
-
-for tweet in tweets.data:
-    #get the user id
-    author_id = tweet.author_id
     
-    is_bad = junk_id_oracle(int(author_id))
     
-    if is_bad:
-        # block a user
-        result = client.block(target_user_id=author_id)
-        # localize time zone
-        #dt = parse(tweet.created_at)
-        local_time = tweet.created_at.replace(tzinfo=timezone.utc).astimezone(tz.gettz()).strftime('%Y-%m-%d %H:%M:%S')
-        print(f"DOUBLE CHECKING: {author_id} who mentioned me at {local_time} blocked? {result.data['blocking']}") 
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description = "parser for twitter bot",formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    #both short and long; the default dest in this case is args.max_results
+    parser.add_argument("-m", "--max_results",help = "the maximum number of examined mentions", type = int, required = False, default = 15) 
+    args = parser.parse_args()
+    
+    #print a separator line
+    print('-'*10)
+
+    #print out current time
+    t = time.localtime()
+    current_time = time.strftime("%Y-%m-%d %H:%M:%S", t)
+    print('TIME:',current_time)
+
+
+    #generate paths for relavant files
+    pwd = path.dirname(path.realpath(__file__))
+    conf_path = path.join(pwd,'conf.yaml')
+    white_list_path = path.join(pwd,'white_list.csv')
+    block_list_path = path.join(pwd,'block_list.yaml')
+
+    with open(conf_path, 'r') as stream:
+        conf = yaml.safe_load(stream)
+    #load secrets
+    secrets = conf['secrets']
+    #load my own id
+    MY_ID = conf['MY_ID']
+
+    #load the ids of recently blocked accounts
+    block_list = dict()
+    if path.exists(block_list_path):  
+        with open(block_list_path,'r') as stream:
+            block_list = yaml.safe_load(stream)
+
+    #load the whitelist which contains friendly ids    
+    WHITE_LIST = dict()
+    if path.exists(white_list_path):
+        with open(white_list_path, "r") as f:
+            reader = csv.DictReader(f)
+            WHITE_LIST = {int(row['twitter_id']):row['name'] for row in reader}
+
+    # Twitter API V2
+    client = tweepy.Client(
+        bearer_token=secrets['BEARER_TOKEN'],
+        consumer_key=secrets['CONSUMER_KEY'], consumer_secret=secrets['CONSUMER_SECRET'],
+        access_token=secrets['ACCESS_TOKEN'], access_token_secret=secrets['ACCESS_SECRET'],
+        wait_on_rate_limit=True
+    )
+       
+    #get latest mentions
+    tweets = client.get_users_mentions(id=MY_ID, max_results=args.max_results, tweet_fields=['context_annotations','created_at','geo'], expansions='author_id')
+
+    for tweet in tweets.data:
+        #get the user id
+        author_id = tweet.author_id
+    
+        is_bad = junk_id_oracle(int(author_id))
+    
+        if is_bad:
+            # block a user
+            result = client.block(target_user_id=author_id)
+            # localize time zone
+            #dt = parse(tweet.created_at)
+            local_time = tweet.created_at.replace(tzinfo=timezone.utc).astimezone(tz.gettz()).strftime('%Y-%m-%d %H:%M:%S')
+            print(f"DOUBLE CHECKING: {author_id} who mentioned me at {local_time} blocked? {result.data['blocking']}") 
         
-
-with open(block_list_path,'w') as f:
-    yaml.dump(block_list,f)
+    #save the updated block list
+    with open(block_list_path,'w') as f:
+        yaml.dump(block_list,f)
