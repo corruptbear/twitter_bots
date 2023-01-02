@@ -10,7 +10,6 @@ from dateutil import tz
 import csv
 import yaml
 
-
 def get_id_by_username(username):
     response = client.get_user(username=username)
     user = response.data
@@ -45,7 +44,6 @@ def junk_id_oracle(author_id):
 #find id by username
 #test_id = get_id_by_username("rats_in_maze")
 #print(type(test_id), test_id) #the type is int
-    
     
 if __name__ == '__main__':
     import argparse
@@ -120,13 +118,14 @@ if __name__ == '__main__':
                     # block a user
                     result = client.block(target_user_id=author_id)
                     print(f"DOUBLE CHECK: interaction at {local_time} id {author_id} name {users[author_id]} blocked? {result.data['blocking']}")
+                    
                     if result.data['blocking']:
-                        block_list[author_id] = users[author_id]
+                        #update the block list
+                        block_list[author_id] = users[author_id]       
+                        #save the updated block list immediately
+                        with open(block_list_path,'w') as f:
+                            yaml.dump(block_list,f)
+                        
         else:
             #from friends
             print(f"FRIEND FOUND: interaction at {local_time} id {author_id} name {WHITE_LIST[author_id]} is from the WHITE LIST")
-            
-        
-    #save the updated block list
-    with open(block_list_path,'w') as f:
-        yaml.dump(block_list,f)
