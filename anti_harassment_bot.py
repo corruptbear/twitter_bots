@@ -113,17 +113,17 @@ if __name__ == '__main__':
         if author_id not in WHITE_LIST:
             if author_id in block_list:
                 #no need to repeat blocking
-                print(f"ABUSER FOUND: id {author_id} name {block_list[author_id]} who interacted with me at {local_time} has already been blocked!")
+                print(f"ABUSER FOUND: interaction at {local_time} id {author_id} name {block_list[author_id]} has already been blocked!")
             else:
                 #unknown new account, in neither whitelist nor blocklist
                 is_bad = junk_id_oracle(int(author_id))
                 if is_bad:
                     # block a user
                     result = client.block(target_user_id=author_id)
-                    print(f"DOUBLE CHECK: id {author_id} name {users[author_id]} who interacted with me at {local_time} blocked? {result.data['blocking']}")
+                    print(f"DOUBLE CHECK: interaction at {local_time} id {author_id} name {users[author_id]} blocked? {result.data['blocking']}")
         else:
             #from friends
-            print(f"FRIEND FOUND: id {author_id} name {WHITE_LIST[author_id]} who interacted with me at {local_time} is from the WHITE LIST")
+            print(f"FRIEND FOUND: interaction at {local_time} id {author_id} name {WHITE_LIST[author_id]} is from the WHITE LIST")
             
         
     #save the updated block list
