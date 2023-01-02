@@ -1,0 +1,3 @@
+*/10 * * * *  w1luo python3  /usr/local/home/w1luo/twitter_bots/anti_harassment_bot.py >> /usr/local/home/w1luo/bots_output.txt
+
+@reboot      w1luo python3  /usr/local/home/w1luo/twitter_bots/anti_harassment_bot.py  >> /usr/local/home/w1luo/bots_output.txt
