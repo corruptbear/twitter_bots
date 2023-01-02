@@ -17,39 +17,31 @@ def get_id_by_username(username):
     return user.id
     
 
-def junk_id_oracle(author_id):
-    if author_id not in WHITE_LIST:
-        if author_id in block_list:
-            print(f"FOUND: id {author_id} name {block_list[author_id]} has already been blocked!")
-            return True
-        
-        #query info about the author
-        response = client.get_user(id=author_id)
-        
-        #get the account creation time
-        author_created = response.data.created_at
-        #get the user name
-        author_name = response.data.username
-        
-        #get the followers
-        response = client.get_users_followers(id=author_id)
-        followers = response.data
-        
-        if followers == None:
-            num_of_followers = 0
-        else:
-            num_of_followers = len(followers)
-        #too few followers and not in whitelist
-        if num_of_followers < 3:
-            print(f"ORACLE: id {author_id} name {author_name} number_of_followers {num_of_followers} is bad")
-            block_list[author_id] = author_name
-            return True
-        else:
-            print(f"ORACLE: id {author_id} name {author_name} is good")
-            return False
+def junk_id_oracle(author_id): 
+    #query info about the author
+    response = client.get_user(id=author_id)
+    
+    #get the account creation time
+    author_created = response.data.created_at
+    #get the user name
+    author_name = response.data.username
+    
+    #get the followers
+    response = client.get_users_followers(id=author_id)
+    followers = response.data
+    
+    if followers == None:
+        num_of_followers = 0
     else:
-        print(f"ORACLE: id {author_id} name {WHITE_LIST[author_id]} is from the WHITE LIST")
-        return False 
+        num_of_followers = len(followers)
+    #too few followers and not in whitelist
+    if num_of_followers < 3:
+        print(f"ORACLE: id {author_id} name {author_name} number_of_followers {num_of_followers} is bad")
+        block_list[author_id] = author_name
+        return True
+    else:
+        print(f"ORACLE: id {author_id} name {author_name} is good")
+        return False
 
 #find id by username
 #test_id = get_id_by_username("rats_in_maze")
@@ -107,21 +99,32 @@ if __name__ == '__main__':
     )
        
     #get latest mentions
-    tweets = client.get_users_mentions(id=MY_ID, max_results=args.max_results, tweet_fields=['context_annotations','created_at','geo'], expansions='author_id')
-
-    for tweet in tweets.data:
+    response = client.get_users_mentions(id=MY_ID, max_results=args.max_results, tweet_fields=['created_at'], expansions='author_id')
+    tweets = response.data
+    users = response.includes["users"]
+    users = {user.id:user.username for user in users}
+    
+    for tweet in tweets:
         #get the user id
         author_id = tweet.author_id
-    
-        is_bad = junk_id_oracle(int(author_id))
-    
-        if is_bad:
-            # block a user
-            result = client.block(target_user_id=author_id)
-            # localize time zone
-            #dt = parse(tweet.created_at)
-            local_time = tweet.created_at.replace(tzinfo=timezone.utc).astimezone(tz.gettz()).strftime('%Y-%m-%d %H:%M:%S')
-            print(f"DOUBLE CHECKING: {author_id} who mentioned me at {local_time} blocked? {result.data['blocking']}") 
+        # localize time zone
+        local_time = tweet.created_at.replace(tzinfo=timezone.utc).astimezone(tz.gettz()).strftime('%Y-%m-%d %H:%M:%S')
+        
+        if author_id not in WHITE_LIST:
+            if author_id in block_list:
+                #no need to repeat blocking
+                print(f"ABUSER FOUND: id {author_id} name {block_list[author_id]} who interacted with me at {local_time} has already been blocked!")
+            else:
+                #unknown new account, in neither whitelist nor blocklist
+                is_bad = junk_id_oracle(int(author_id))
+                if is_bad:
+                    # block a user
+                    result = client.block(target_user_id=author_id)
+                    print(f"DOUBLE CHECKING: id {author_id} name {users[author_id]} who interacted with me at {local_time} blocked? {result.data['blocking']}")
+        else:
+            #from friends
+            print(f"FRIEND FOUND: id {author_id} name {WHITE_LIST[author_id]} is from the WHITE LIST")
+            
         
     #save the updated block list
     with open(block_list_path,'w') as f:
