@@ -2,7 +2,6 @@
 
 import tweepy
 import time
-import pickle
 from os import path
 
 from datetime import datetime, timezone
@@ -38,7 +37,6 @@ block_list = dict()
 if path.exists(block_list_path):  
     with open(block_list_path,'r') as stream:
         block_list = yaml.safe_load(stream)
-        print(block_list)  
 
 #load the whitelist which contains friendly ids    
 WHITE_LIST = dict()
