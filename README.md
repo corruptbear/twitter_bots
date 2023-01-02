@@ -1,5 +1,14 @@
 # twitter_bots
 
+install
+
+```bash
+git clone https://github.com/wsluo/twitter_bots
+cd twitter_bots
+pip3 install -r requirements.txt
+```
+
+
 cron scheduling setup
 ```bash
 #copy the cron file to the cron folder
