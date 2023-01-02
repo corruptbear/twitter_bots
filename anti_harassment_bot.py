@@ -37,7 +37,6 @@ def junk_id_oracle(author_id):
     #too few followers and not in whitelist
     if num_of_followers < 3:
         print(f"ORACLE TIME!: id {author_id} name {author_name} number_of_followers {num_of_followers} is bad")
-        block_list[author_id] = author_name
         return True
     else:
         print(f"ORACLE TIME!: id {author_id} name {author_name} is good")
@@ -121,6 +120,8 @@ if __name__ == '__main__':
                     # block a user
                     result = client.block(target_user_id=author_id)
                     print(f"DOUBLE CHECK: interaction at {local_time} id {author_id} name {users[author_id]} blocked? {result.data['blocking']}")
+                    if result.data['blocking']:
+                        block_list[author_id] = users[author_id]
         else:
             #from friends
             print(f"FRIEND FOUND: interaction at {local_time} id {author_id} name {WHITE_LIST[author_id]} is from the WHITE LIST")
