@@ -1,5 +1,11 @@
 # twitter_bots
 
+current usage
+- personal anti-harassment bot
+- auto-block accounts interacting with me based on number of followers and registration time
+- works with & without twitter webhook
+- for webhook to work, you need to set it up and add event handler code to save the ids and screen_names of users interacting with you to `hook_events_ids.log` in this folder (which could be parsed as yaml)
+
 ## install
 
 ```bash
@@ -27,7 +33,10 @@ secrets:
   CONSUMER_SECRET: your_actual_stuff_here
 ```
 
-## cron scheduling setup
+## Cron scheduling setup
+you can schedule the bot to run periodically using job scheduler Cron. 
+
+make necessary changes and copy the example schedule to the cron job folder
 ```bash
 #copy the cron file to the cron folder
 sudo cp anti_harassment /etc/cron.d/anti_harassment
@@ -39,6 +48,8 @@ sudo vim /etc/cron.d/anti_harassment
 ```bash
 #check the block list
 cat block_list.yaml
+#check the white list
+cat white_list.csv
 ```
 
 ## webhook setup
