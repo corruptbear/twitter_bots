@@ -72,7 +72,7 @@ if __name__ == '__main__':
     conf_path = path.join(pwd,'conf.yaml')
     white_list_path = path.join(pwd,'white_list.csv')
     block_list_path = path.join(pwd,'block_list.yaml')
-    hook_log_path = path.join(pwd,'hook_event_user_id.log')
+    hook_log_path = path.join(pwd,'hook_events_ids.log')
 
     with open(conf_path, 'r') as stream:
         conf = yaml.safe_load(stream)
@@ -135,17 +135,20 @@ if __name__ == '__main__':
         else:
             #from friends
             print(f"FRIEND FOUND: interaction at {local_time} id {author_id} name {WHITE_LIST[author_id]} is from the WHITE LIST")
-    
+   
+   #if webhook is enabled
     if path.exists(hook_log_path):
-        print("WBHOOK???")
+        print("~~~WEBHOOK~~~")
+        #get the lock
         lock_path = hook_log_path + ".lock"
         lock = FileLock(lock_path, timeout=2)
         with lock:
             with open(hook_log_path,'r') as stream:
                 hook_users = yaml.safe_load(stream)
+                #if the file is not empty
                 if hook_users is not None:
                     for user_id in hook_users:
-                        #missing from regular check:
+                        #if the user recorded in the hook log is not already examined in the mentions
                         if user_id not in users:
                             if user_id not in WHITE_LIST:
                                 if user_id in block_list:
@@ -160,6 +163,7 @@ if __name__ == '__main__':
                                             save_block_list()
                             else:
                                 print(f"FRIEND FOUND: id {user_id} name {hook_users[user_id]} is from the WHITE LIST")
+            #reset the hook log to blank file
             with open(hook_log_path,'w') as blank_file:
                 pass
 
