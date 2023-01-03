@@ -24,10 +24,13 @@ def save_block_list():
 
 def junk_id_oracle(author_id): 
     #query info about the author
-    response = client.get_user(id=author_id, user_fields=['created_at'])
+    response = client.get_user(id=author_id, user_fields=['created_at','public_metrics'])
     
     #get the account creation time, which is timezone aware (utc)
     author_created = response.data.created_at
+    followers_count = response.data.public_metrics['followers_count']
+    following_count = response.data.public_metrics['following_count']
+    tweet_count = response.data.public_metrics['tweet_count']
     #print(author_created.replace(tzinfo=timezone.utc).astimezone(tz.gettz()).strftime('%Y-%m-%d %H:%M:%S'))
     #calculate the timedelta
     time_diff = current_time - author_created
@@ -35,17 +38,20 @@ def junk_id_oracle(author_id):
     #get the user name
     author_name = response.data.username
     
-    #get the followers
+    """
+    #get the followers using the followers list API
     response = client.get_users_followers(id=author_id)
     followers = response.data
     
     if followers == None:
-        num_of_followers = 0
+        followers_count = 0
     else:
-        num_of_followers = len(followers)
+        followers_count = len(followers)
+    """
+
     #too few followers or too new
-    if num_of_followers < 5 or time_diff.days < 180:
-        print(f"ORACLE TIME!: id {author_id} name {author_name} number_of_followers {num_of_followers} is bad")
+    if followers_count < 5 or time_diff.days < 180:
+        print(f"ORACLE TIME!: id {author_id} name {author_name} followers_count {followers_count} is bad")
         return True
     else:
         print(f"ORACLE TIME!: id {author_id} name {author_name} is good")
