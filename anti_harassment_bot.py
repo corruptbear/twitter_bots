@@ -163,10 +163,10 @@ if __name__ == '__main__':
                                         result = client.block(target_user_id=user_id)
                                         print(f"MISSED FISH!: id {user_id} name {hook_users[user_id]} blocked? {result.data['blocking']}")
                                         if result.data['blocking']:
-                                            block_list[user_id] = hook_users[user_id]
+                                            block_list[user_id] = str(hook_users[user_id])
                                             save_block_list()
                             else:
-                                print(f"FRIEND FOUND: id {user_id} name {hook_users[user_id]} is from the WHITE LIST")
+                                print(f"FRIEND FOUND: id {user_id} name {str(hook_users[user_id])} is from the WHITE LIST")
             #reset the hook log to blank file
             with open(hook_log_path,'w') as blank_file:
                 pass
