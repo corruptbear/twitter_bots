@@ -81,5 +81,5 @@ python3 subscribe_owning_user.py
 prepare the logs accessible for writing
 ```bash
 touch hook_events_ids.log && chmod 777 hook_events_ids.log
-touch hook_events_ids.log.lock chmod 777 hook_events_ids.log.lock
+touch hook_events_ids.log.lock && chmod 777 hook_events_ids.log.lock
 ```
