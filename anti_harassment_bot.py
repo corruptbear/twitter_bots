@@ -10,11 +10,17 @@ from dateutil import tz
 import csv
 import yaml
 
+from filelock import FileLock, Timeout
+
 def get_id_by_username(username):
     response = client.get_user(username=username)
     user = response.data
     return user.id
     
+def save_block_list():
+    with open(block_list_path,'w') as f:
+        yaml.dump(block_list,f)
+
 
 def junk_id_oracle(author_id): 
     #query info about the author
@@ -66,6 +72,7 @@ if __name__ == '__main__':
     conf_path = path.join(pwd,'conf.yaml')
     white_list_path = path.join(pwd,'white_list.csv')
     block_list_path = path.join(pwd,'block_list.yaml')
+    hook_log_path = path.join(pwd,'hook_event_user_id.log')
 
     with open(conf_path, 'r') as stream:
         conf = yaml.safe_load(stream)
@@ -86,6 +93,7 @@ if __name__ == '__main__':
         with open(white_list_path, "r") as f:
             reader = csv.DictReader(f)
             WHITE_LIST = {int(row['twitter_id']):row['name'] for row in reader}
+
 
     # Twitter API V2
     client = tweepy.Client(
@@ -123,9 +131,35 @@ if __name__ == '__main__':
                         #update the block list
                         block_list[author_id] = users[author_id]       
                         #save the updated block list immediately
-                        with open(block_list_path,'w') as f:
-                            yaml.dump(block_list,f)
-                        
+                        save_block_list() 
         else:
             #from friends
             print(f"FRIEND FOUND: interaction at {local_time} id {author_id} name {WHITE_LIST[author_id]} is from the WHITE LIST")
+    
+    if path.exists(hook_log_path):
+        print("WBHOOK???")
+        lock_path = hook_log_path + ".lock"
+        lock = FileLock(lock_path, timeout=2)
+        with lock:
+            with open(hook_log_path,'r') as stream:
+                hook_users = yaml.safe_load(stream)
+                if hook_users is not None:
+                    for user_id in hook_users:
+                        #missing from regular check:
+                        if user_id not in users:
+                            if user_id not in WHITE_LIST:
+                                if user_id in block_list:
+                                    print(f"ABUSER FOUND: id {user_id} name {hook_users[user_id]} has alerady been blocked!")
+                                else:
+                                    is_bad = junk_id_oracle(int(user_id))
+                                    if is_bad:
+                                        result = client.block(target_user_id=user_id)
+                                        print(f"MISSED FISH!: id {user_id} name {hook_users[user_id]} blocked? {result.data['blocking']}")
+                                        if result.data['blocking']:
+                                            block_list[user_id] = hook_users[user_id]
+                                            save_block_list()
+                            else:
+                                print(f"FRIEND FOUND: id {user_id} name {hook_users[user_id]} is from the WHITE LIST")
+            with open(hook_log_path,'w') as blank_file:
+                pass
+

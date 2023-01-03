@@ -1,2 +1,4 @@
 *.yaml
+*.log
+*.lock
 white_list.csv
