@@ -24,10 +24,14 @@ def save_block_list():
 
 def junk_id_oracle(author_id): 
     #query info about the author
-    response = client.get_user(id=author_id)
+    response = client.get_user(id=author_id, user_fields=['created_at'])
     
-    #get the account creation time
+    #get the account creation time, which is timezone aware (utc)
     author_created = response.data.created_at
+    #print(author_created.replace(tzinfo=timezone.utc).astimezone(tz.gettz()).strftime('%Y-%m-%d %H:%M:%S'))
+    #calculate the timedelta
+    time_diff = current_time - author_created
+
     #get the user name
     author_name = response.data.username
     
@@ -39,8 +43,8 @@ def junk_id_oracle(author_id):
         num_of_followers = 0
     else:
         num_of_followers = len(followers)
-    #too few followers and not in whitelist
-    if num_of_followers < 3:
+    #too few followers or too new
+    if num_of_followers < 5 or time_diff.days < 180:
         print(f"ORACLE TIME!: id {author_id} name {author_name} number_of_followers {num_of_followers} is bad")
         return True
     else:
@@ -62,9 +66,9 @@ if __name__ == '__main__':
     print('-'*10)
 
     #print out current time
-    t = time.localtime()
-    current_time = time.strftime("%Y-%m-%d %H:%M:%S", t)
-    print('TIME:',current_time)
+    current_time = datetime.now(timezone.utc)
+    current_time_str = current_time.astimezone(tz.gettz()).strftime("%Y-%m-%d %H:%M:%S")
+    print('TIME:',current_time_str)
 
 
     #generate paths for relavant files
