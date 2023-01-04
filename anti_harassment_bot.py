@@ -83,6 +83,7 @@ if __name__ == '__main__':
     white_list_path = path.join(pwd,'white_list.csv')
     block_list_path = path.join(pwd,'block_list.yaml')
     hook_log_path = path.join(pwd,'hook_events_ids.log')
+    hook_log_backup_path = path.join(pwd,"hook_events_ids_backup.log")
 
     with open(conf_path, 'r') as stream:
         conf = yaml.safe_load(stream)
@@ -162,18 +163,22 @@ if __name__ == '__main__':
                         if user_id not in users:
                             if user_id not in WHITE_LIST:
                                 if user_id in block_list:
-                                    print(f"ABUSER FOUND: id {user_id} name {hook_users[user_id]} has alerady been blocked!")
+                                    print(f"ABUSER FOUND: id {user_id} name {hook_users[user_id]['screen_name']} has alerady been blocked!")
                                 else:
                                     is_bad = junk_id_oracle(int(user_id))
                                     if is_bad:
                                         result = client.block(target_user_id=user_id)
-                                        print(f"MISSED FISH!: id {user_id} name {hook_users[user_id]} blocked? {result.data['blocking']}")
+                                        print(f"MISSED FISH!: id {user_id} name {hook_users[user_id]['screen_name']} blocked? {result.data['blocking']}")
                                         if result.data['blocking']:
                                             block_list[user_id] = str(hook_users[user_id])
                                             save_block_list()
                             else:
-                                print(f"FRIEND FOUND: id {user_id} name {str(hook_users[user_id])} is from the WHITE LIST")
+                                print(f"FRIEND FOUND: id {user_id} name {str(hook_users[user_id]['screen_name'])} is from the WHITE LIST")
+                    #backup the processed hook users            
+                    with open(hook_log_backup_path,"a") as f:
+                        hook_dump = {current_time_str:hook_users}
+                        yaml.dump(hook_dump,f)
+
             #reset the hook log to blank file
             with open(hook_log_path,'w') as blank_file:
                 pass
-
