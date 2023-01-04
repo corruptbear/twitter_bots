@@ -170,7 +170,7 @@ if __name__ == '__main__':
                                         result = client.block(target_user_id=user_id)
                                         print(f"MISSED FISH!: id {user_id} name {hook_users[user_id]['screen_name']} blocked? {result.data['blocking']}")
                                         if result.data['blocking']:
-                                            block_list[user_id] = str(hook_users[user_id])
+                                            block_list[user_id] = str(hook_users[user_id]['screen_name'])
                                             save_block_list()
                             else:
                                 print(f"FRIEND FOUND: id {user_id} name {str(hook_users[user_id]['screen_name'])} is from the WHITE LIST")
