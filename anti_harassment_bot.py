@@ -11,6 +11,7 @@ import csv
 import yaml
 
 from filelock import FileLock, Timeout
+from rule_parser import rule_eval
 
 def get_id_by_username(username):
     response = client.get_user(username=username)
@@ -49,8 +50,18 @@ def junk_id_oracle(author_id):
         followers_count = len(followers)
     """
 
+    default_fule = "(followers_count < 5) or (days < 180)"
+
+    rule_eval_vars =  {'followers_count':followers_count, 'following_count':following_count,'days':time_diff.days}
+
+    try:
+        r = rule_eval(filtering_rule, rule_eval_vars)
+    except Exception as e:
+        print(e)
+        r = rule_eval(default_rule, rule_eval_vars)
+
     #too few followers or too new
-    if followers_count < 5 or time_diff.days < 180:
+    if r:
         print(f"ORACLE TIME!: id {author_id} name {author_name} followers_count {followers_count} is bad")
         return True
     else:
@@ -91,6 +102,8 @@ if __name__ == '__main__':
     secrets = conf['secrets']
     #load my own id
     MY_ID = conf['MY_ID']
+    #load filtering rule
+    filtering_rule = conf['filtering_rule']
 
     #load the ids of recently blocked accounts
     block_list = dict()

@@ -2,3 +2,4 @@
 *.log
 *.lock
 white_list.csv
+**/__pycache__/
