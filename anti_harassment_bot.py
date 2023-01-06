@@ -52,7 +52,7 @@ def junk_id_oracle(author_id):
 
     default_fule = "(followers_count < 5) or (days < 180)"
 
-    rule_eval_vars =  {'followers_count':followers_count, 'following_count':following_count,'days':time_diff.days}
+    rule_eval_vars =  {'followers_count':followers_count, 'following_count':following_count, 'tweet_count':tweet_count,'days':time_diff.days}
 
     try:
         r = rule_eval(filtering_rule, rule_eval_vars)

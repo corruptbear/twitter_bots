@@ -31,8 +31,20 @@ secrets:
   ACCESS_SECRET: your_actual_stuff_here
   CONSUMER_KEY: your_actual_stuff_here
   CONSUMER_SECRET: your_actual_stuff_here
+filtering_rule: your_filtering_rule_in_double_quotes
 ```
 
+### filtering rule
+logic expression describing bad accounts
+
+- logic operators:  `not` `and` `or`  
+- comparison operators:  `>` `<` `>=` `<=` `==` `!=`
+- keywords: `followers_count ` `following_count`  `tweet_count` `days`  
+
+Example
+```
+"(followers_count <= 5 and following_count <= 5) or (days <= 180)"
+```
 ## Cron scheduling setup
 you can schedule the bot to run periodically using job scheduler Cron. 
 
@@ -50,6 +62,8 @@ sudo vim /etc/cron.d/anti_harassment
 cat block_list.yaml
 #check the white list
 cat white_list.csv
+#check the full history of hook events
+hook_events_ids_backup.log
 ```
 
 ## webhook setup
