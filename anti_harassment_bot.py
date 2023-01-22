@@ -131,7 +131,7 @@ if __name__ == '__main__':
     response = client.get_users_mentions(id=MY_ID, max_results=args.max_results, tweet_fields=['created_at'], expansions='author_id')
     tweets = response.data
     users = response.includes["users"]
-    users = {user.id:user.username for user in users}
+    users = {int(user.id):user.username for user in users}
     
     for tweet in tweets:
         #get the user id
@@ -168,29 +168,31 @@ if __name__ == '__main__':
         lock = FileLock(lock_path, timeout=2)
         with lock:
             with open(hook_log_path,'r') as stream:
-                hook_users = yaml.safe_load(stream)
+                hook_log = yaml.safe_load(stream)
                 #if the file is not empty
-                if hook_users is not None:
-                    for user_id in hook_users:
+                if hook_log is not None:
+                    for timestamp in hook_log:
+                        #for some reason, not all are int, so need to convert
+                        user_id = int(hook_log[timestamp]['id'])  
+                        screen_name = str(hook_log[timestamp]['screen_name'])
                         #if the user recorded in the hook log is not already examined in the mentions
                         if user_id not in users:
                             if user_id not in WHITE_LIST:
                                 if user_id in block_list:
-                                    print(f"ABUSER FOUND: id {user_id} name {hook_users[user_id]['screen_name']} has alerady been blocked!")
+                                    print(f"ABUSER FOUND: id {user_id} name {screen_name} has alerady been blocked!")
                                 else:
                                     is_bad = junk_id_oracle(int(user_id))
                                     if is_bad:
                                         result = client.block(target_user_id=user_id)
-                                        print(f"MISSED FISH!: id {user_id} name {hook_users[user_id]['screen_name']} blocked? {result.data['blocking']}")
+                                        print(f"MISSED FISH!: id {user_id} name {screen_name} blocked? {result.data['blocking']}")
                                         if result.data['blocking']:
-                                            block_list[user_id] = str(hook_users[user_id]['screen_name'])
+                                            block_list[user_id] = screen_name
                                             save_block_list()
                             else:
-                                print(f"FRIEND FOUND: id {user_id} name {str(hook_users[user_id]['screen_name'])} is from the WHITE LIST")
+                                print(f"FRIEND FOUND: id {user_id} name {screen_name} is from the WHITE LIST")
                     #backup the processed hook users            
                     with open(hook_log_backup_path,"a") as f:
-                        hook_dump = {current_time_str:hook_users}
-                        yaml.dump(hook_dump,f)
+                        yaml.dump(hook_log,f)
 
             #reset the hook log to blank file
             with open(hook_log_path,'w') as blank_file:
