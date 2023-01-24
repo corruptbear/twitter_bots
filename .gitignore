@@ -3,3 +3,4 @@
 *.lock
 white_list.csv
 **/__pycache__/
+**/venv/

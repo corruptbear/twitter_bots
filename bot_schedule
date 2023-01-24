@@ -1,0 +1,3 @@
+*/1 * * * *  opc /home/opc/twitter_bots/venv/bin/python3  /home/opc/twitter_bots/anti_harassment_bot.py -m 5 >> /home/opc/bots_output.txt
+
+@reboot      opc /home/opc/twitter_bots/venv/bin/python3  /home/opc/twitter_bots/anti_harassment_bot.py -m 5 >> /home/opc/bots_output.txt

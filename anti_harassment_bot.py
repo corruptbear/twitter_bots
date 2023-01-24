@@ -94,7 +94,7 @@ if __name__ == '__main__':
     white_list_path = path.join(pwd,'white_list.csv')
     block_list_path = path.join(pwd,'block_list.yaml')
     hook_log_path = path.join(pwd,'hook_events_ids.log')
-    hook_log_backup_path = path.join(pwd,"hook_events_ids_backup.log")
+    hook_log_backup_path = path.join(pwd,"backup_hook_events_id.log")
 
     with open(conf_path, 'r') as stream:
         conf = yaml.safe_load(stream)
