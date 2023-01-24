@@ -12,10 +12,15 @@ from filelock import Timeout, FileLock
 import yaml
 
 
+parent = os.path.join(os.path.dirname(__file__), os.pardir)
+with open(os.path.join(parent,'hook_conf.yaml'),'r') as stream:
+    conf = yaml.safe_load(stream)
+    #load secrets
+    secrets = conf['secrets']
 
 app = Flask(__name__)
 
-CONSUMER_SECRET = "pAQrz7DcuSwnq9Zv9kn5ocaDwYhuMWoryklfVkLlxNQze99sZ0"
+CONSUMER_SECRET = secrets["CONSUMER_SECRET"]
 
 # The GET method for webhook should be used for the CRC check
 @app.route("/mywebhook", methods=["GET"])
@@ -67,7 +72,7 @@ def event_manager():
     event_logs = {**tweet_create_logs, **follow_logs, **favorite_logs}
     print(event_logs)
     if len(event_logs)>0:
-        event_log_path = "/home/opc/twitter_bots/hook_events_ids.log"
+        event_log_path = os.path.join(parent,'hook_events_ids.log')
         lock_path = event_log_path + ".lock"
         lock = FileLock(lock_path, timeout=5)
         with lock:
