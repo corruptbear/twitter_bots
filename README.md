@@ -2,25 +2,35 @@
 
 current usage
 - personal anti-harassment bot
-- auto-block accounts interacting with me based on number of followers and registration time
+- auto-block accounts interacting with me based on account information
 - works with & without twitter webhook
-- for webhook to work, you need to set it up and add event handler code to save the ids and screen_names of users interacting with you to `hook_events_ids.log` in this folder (which could be parsed as yaml)
+- the webhook flask code is included. you need to have elevated twitter API access, register your webhook with `https` url and set it up with your apache server. 
 
 ## install
 
 ```bash
 git clone https://github.com/wsluo/twitter_bots
 cd twitter_bots
+
+#create empty configuration files
+echo "twitter_id,name" >> white_list.csv && touch conf.yaml && touch hook_conf.yaml
+
+#create virtual env
+python3 -m venv venv
+#activate virtual env
+. venv/bin/activate
+
+pip3 install --upgrade pip
 pip3 install -r requirements.txt
 ```
 
 ## config
-put friends in `white_list.csv` with following header line
+put known friends in `white_list.csv` line by line
 ```csv
 twitter_id,name
 ```
 
-make `conf.yaml` in this directory, fill in the information from your bot app
+the content of `conf.yaml` should look like this. `filtering_rule` is explained later.
 ```yaml
 MY_ID: your_id_number
 secrets:
@@ -34,41 +44,8 @@ secrets:
 filtering_rule: your_filtering_rule_in_double_quotes
 ```
 
-### filtering rule
-logic expression describing bad accounts
-
-- logic operators:  `not` `and` `or`  
-- comparison operators:  `>` `<` `>=` `<=` `==` `!=`
-- keywords: `followers_count ` `following_count`  `tweet_count` `days`  
-
-Example
-```
-"(followers_count <= 5 and following_count <= 5) or (days <= 180)"
-```
-## Cron scheduling setup
-you can schedule the bot to run periodically using job scheduler Cron. 
-
-make necessary changes and copy the example schedule to the cron job folder
-```bash
-#copy the cron file to the cron folder
-sudo cp anti_harassment /etc/cron.d/anti_harassment
-#you can then modify schedule there
-sudo vim /etc/cron.d/anti_harassment
-```
-
-## view files
-```bash
-#check the block list
-cat block_list.yaml
-#check the white list
-cat white_list.csv
-#check the full history of hook events
-hook_events_ids_backup.log
-```
-
-## webhook setup
-
-make `hook_conf.yaml` in this directory
+the content of `hook_conf.yaml` should look like this.
+note that the url for you webhook needs to be `https`, `http` will not work. Self-signed SSL certificates will also not work here.
 ```yaml
 MY_ID: your_id_number
 env_name: your_env_name
@@ -83,17 +60,67 @@ secrets:
   CONSUMER_SECRET: your_actual_stuff_here
 ```
 
-suppose you have already [setup your webhook to handle crc](https://dev.to/twitterdev/building-a-live-leaderboard-on-twitter-49g9#gs-registering),
-then you can register your webhook and make yourself a subscriber
+## filtering rule
+logic expression describing bad accounts
 
-*Do not run this multiple times*
-```bash
-python3 register_webhook.py
-python3 subscribe_owning_user.py
+- logic operators:  `not` `and` `or`  
+- comparison operators:  `>` `<` `>=` `<=` `==` `!=`
+- keywords: `followers_count ` `following_count`  `tweet_count` `days`  
+
+Example
+```
+"(followers_count <= 5 and following_count <= 5) or (days <= 180)"
 ```
 
-prepare the logs accessible for writing
+## Cron scheduling setup
+you can schedule the bot to run periodically using job scheduler Cron. 
+make necessary changes and copy the example schedule to the cron job folder
+
+inside the cron file, make sure that you are invoking `venv/bin/python3`
 ```bash
+#copy the cron file to the cron folder
+sudo cp bot_schedule /etc/cron.d/bot_schedule
+#you can then modify schedule there
+sudo vim /etc/cron.d/bot_schedule
+```
+
+## view files
+```bash
+#check the block list, which will be auto-updated with auto-blocks
+cat block_list.yaml
+#check the white list
+cat white_list.csv
+#check the full history of hook events
+backup_hook_events_ids.log
+```
+
+## webhook setup
+
+setup the mod_wsgi httpd configuration
+```bash
+cd /venv/bin
+#paste the result to the beginning of the main httpd.conf! 
+#the version of mod_wsgi needs to match the python version, otherwise it's bug prone
+mod_wsgi-express module-config
+```
+
+make the logs accessible for writing, then register the webhook (*Do not run this multiple times*)
+```bash
+#assuming you are now in the main folder
 touch hook_events_ids.log && chmod 777 hook_events_ids.log
 touch hook_events_ids.log.lock && chmod 777 hook_events_ids.log.lock
+
+cd webhook
+touch debug.log && chmod 776 debug.log
+
+#register the webhook
+cd .. && . venv/bin/activate
+
+#if you need to revoke old webhook, change the hook id and run
+#python3 revoke_webhook.py
+
+python3 register_webhook.py
+python3 subscribe_owning_user.py
+
+#do not forget to save your webhook id
 ```
