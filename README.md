@@ -13,7 +13,7 @@ git clone https://github.com/wsluo/twitter_bots
 cd twitter_bots
 
 #create empty configuration files
-echo "twitter_id,name" >> white_list.csv && touch conf.yaml && touch hook_conf.yaml
+touch white_list.yaml && touch conf.yaml && touch hook_conf.yaml
 
 #create virtual env
 python3 -m venv venv
@@ -25,9 +25,10 @@ pip3 install -r requirements.txt
 ```
 
 ## config
-put known friends in `white_list.csv` line by line
-```csv
-twitter_id,name
+put known friends in `white_list.yaml` line by line
+```yaml
+id1_of_your_friend: name1_of_your_friend
+id2_of_your_friend: name2_of_your_friend
 ```
 
 the content of `conf.yaml` should look like this. `filtering_rule` is explained later.
@@ -89,7 +90,7 @@ sudo vim /etc/cron.d/bot_schedule
 #check the block list, which will be auto-updated with auto-blocks
 cat block_list.yaml
 #check the white list
-cat white_list.csv
+cat white_list.yaml
 #check the full history of hook events
 backup_hook_events_ids.log
 ```

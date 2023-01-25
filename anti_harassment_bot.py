@@ -7,7 +7,6 @@ from os import path
 from datetime import datetime, timezone
 from dateutil import tz
 
-import csv
 import yaml
 
 from filelock import FileLock, Timeout
@@ -17,12 +16,17 @@ def get_id_by_username(username):
     response = client.get_user(username=username)
     user = response.data
     return user.id
-    
-def save_block_list():
-    with open(block_list_path,'w') as f:
-        yaml.dump(block_list,f)
-
-
+        
+def save_yaml(dictionary,filepath,write_mode):
+    with open(filepath,write_mode) as f:
+        yaml.dump(dictionary,f)
+        
+def load_yaml(filepath):
+    with open(filepath,'r') as stream:
+        dictionary = yaml.safe_load(stream)
+        return dictionary
+    return None
+        
 def junk_id_oracle(author_id): 
     #query info about the author
     response = client.get_user(id=author_id, user_fields=['created_at','public_metrics'])
@@ -87,17 +91,15 @@ if __name__ == '__main__':
     current_time_str = current_time.astimezone(tz.gettz()).strftime("%Y-%m-%d %H:%M:%S")
     print('TIME:',current_time_str)
 
-
     #generate paths for relavant files
     pwd = path.dirname(path.realpath(__file__))
     conf_path = path.join(pwd,'conf.yaml')
-    white_list_path = path.join(pwd,'white_list.csv')
+    white_list_path = path.join(pwd,'white_list.yaml')
     block_list_path = path.join(pwd,'block_list.yaml')
     hook_log_path = path.join(pwd,'hook_events_ids.log')
     hook_log_backup_path = path.join(pwd,"backup_hook_events_id.log")
 
-    with open(conf_path, 'r') as stream:
-        conf = yaml.safe_load(stream)
+    conf = load_yaml(conf_path)
     #load secrets
     secrets = conf['secrets']
     #load my own id
@@ -108,16 +110,12 @@ if __name__ == '__main__':
     #load the ids of recently blocked accounts
     block_list = dict()
     if path.exists(block_list_path):  
-        with open(block_list_path,'r') as stream:
-            block_list = yaml.safe_load(stream)
+        block_list = load_yaml(block_list_path)
 
     #load the whitelist which contains friendly ids    
     WHITE_LIST = dict()
     if path.exists(white_list_path):
-        with open(white_list_path, "r") as f:
-            reader = csv.DictReader(f)
-            WHITE_LIST = {int(row['twitter_id']):row['name'] for row in reader}
-
+        WHITE_LIST = load_yaml(white_list_path)
 
     # Twitter API V2
     client = tweepy.Client(
@@ -155,7 +153,7 @@ if __name__ == '__main__':
                         #update the block list
                         block_list[author_id] = users[author_id]       
                         #save the updated block list immediately
-                        save_block_list() 
+                        save_yaml(block_list,block_list_path,'w')
         else:
             #from friends
             print(f"FRIEND FOUND: interaction at {local_time} id {author_id} name {WHITE_LIST[author_id]} is from the WHITE LIST")
@@ -187,12 +185,11 @@ if __name__ == '__main__':
                                         print(f"MISSED FISH!: id {user_id} name {screen_name} blocked? {result.data['blocking']}")
                                         if result.data['blocking']:
                                             block_list[user_id] = screen_name
-                                            save_block_list()
+                                            save_yaml(block_list,block_list_path,'w')
                             else:
                                 print(f"FRIEND FOUND: id {user_id} name {screen_name} is from the WHITE LIST")
-                    #backup the processed hook users            
-                    with open(hook_log_backup_path,"a") as f:
-                        yaml.dump(hook_log,f)
+                    #backup the processed hook users  
+                    save_yaml(hook_log,hook_log_backup_path,'a')          
 
             #reset the hook log to blank file
             with open(hook_log_path,'w') as blank_file:
