@@ -99,7 +99,7 @@ backup_hook_events_ids.log
 
 setup the mod_wsgi httpd configuration
 ```bash
-cd /venv/bin
+cd venv/bin
 #paste the result to the beginning of the main httpd.conf! 
 #the version of mod_wsgi needs to match the python version, otherwise it's bug prone
 mod_wsgi-express module-config
@@ -125,3 +125,24 @@ python3 subscribe_owning_user.py
 
 #do not forget to save your webhook id
 ```
+
+
+## SELinux setup
+it's necessary for SELinux users.
+suppose you are in the `twitter_bots` 's parent directory.
+```bash
+chcon -R --type=httpd_sys_content_t twitter_bots
+
+cd twitter_bots
+chcon -t httpd_sys_rw_content_t hook_events_ids.log
+chcon -t httpd_sys_rw_content_t hook_events_ids.log.lock
+#if you are using SELinux (change the path if you are using other versions)
+chcon -t httpd_sys_script_exec_t  venv/lib64/python3.6/site-packages/mod_wsgi/server/mod_wsgi-py36.cpython-36m-aarch64-linux-gnu.so
+
+cd webhook
+chcon -t httpd_sys_script_exec_t hook.wsgi
+chcon -t httpd_sys_script_exec_t hook_site.py
+chcon -t httpd_sys_script_exec_t utils.py
+chcon -t httpd_sys_script_exec_t __init__.py
+chcon -t httpd_sys_rw_content_t debug.log
+````
