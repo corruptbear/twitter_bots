@@ -1,6 +1,7 @@
 *.yaml
 *.log
 *.lock
+*.pkl
 white_list.csv
 **/__pycache__/
 **/venv/
