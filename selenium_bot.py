@@ -46,6 +46,7 @@ def load_yaml(filepath):
 
 pwd = os.path.dirname(os.path.realpath(__file__))
 CONFIG_PATH = os.path.join(pwd, "apifree.yaml") 
+COOKIE_PATH = os.path.join(pwd, "sl_cookies.pkl")
 
 config_dict = load_yaml(CONFIG_PATH)
 
@@ -60,8 +61,6 @@ class SeleniumTwitterBot:
     url = "https://twitter.com/rats_in_maze"
     notification_url = "https://twitter.com/notifications"
     home_url = "https://twitter.com/home"
-
-    cookie_path = "sl_cookies.pkl"
 
     # ------------------------ALL XPATHS--------------------------
     # login banner at the bottom of a page, if logged out
@@ -141,9 +140,6 @@ class SeleniumTwitterBot:
     join_date_xpath = "/html/body/div[1]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/div/div/div/div/div[4]/div/span/span"
 
     def __init__(self):
-        SeleniumTwitterBot.cookie_path = os.path.join(
-            pwd, SeleniumTwitterBot.cookie_path
-        )
         self.setup_driver()
 
     def setup_driver(self):
@@ -266,11 +262,11 @@ class SeleniumTwitterBot:
 
     def twitter_login(self):
         # cookie refreshment? expiration? what will happen when one of the cookies expire?
-        if os.path.exists(SeleniumTwitterBot.cookie_path):
+        if os.path.exists(COOKIE_PATH):
             self.driver.get(SeleniumTwitterBot.home_url)
 
             try:
-                self.load_cookies(SeleniumTwitterBot.cookie_path)
+                self.load_cookies(COOKIE_PATH)
 
                 sleep(1)
                 l = self.driver.find_elements(
@@ -347,7 +343,7 @@ class SeleniumTwitterBot:
 
                     # not all non-reply items have user id (for example, login warning)
                     if len(user_id) > 0:
-                        print("retrive---------non-reply-user------------", i, len(l1))
+                        print("retrieve---------non-reply-user------------", i, len(l1))
 
                         try:
                             self._current_element = user_id[0]
@@ -366,7 +362,7 @@ class SeleniumTwitterBot:
 
                 # there are reply items
                 if len(l2) > 0:
-                    print("retrive---------reply-user------------", i, len(l2))
+                    print("retrivee---------reply-user------------", i, len(l2))
 
                     last = SeleniumTwitterBot.reply_item_xpath(i)
 
@@ -412,7 +408,7 @@ class SeleniumTwitterBot:
             # auto_block_user(driver,x)
 
         pickle.dump(
-            self.driver.get_cookies(), open(SeleniumTwitterBot.cookie_path, "wb")
+            self.driver.get_cookies(), open(COOKIE_PATH, "wb")
         )
 
 

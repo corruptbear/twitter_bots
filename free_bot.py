@@ -22,8 +22,8 @@ from selenium_bot import SeleniumTwitterBot, save_yaml, load_yaml
 MAX_MSG_LEN = 50
 
 pwd = os.path.dirname(os.path.realpath(__file__))
-
 CONFIG_PATH = os.path.join(pwd, "apifree.yaml") 
+COOKIE_PATH = os.path.join(pwd, "sl_cookies.pkl")
 
 config_dict = load_yaml(CONFIG_PATH)
 
@@ -80,8 +80,6 @@ class TwitterUserProfile:
 
 
 class TwitterLoginBot:
-    saved_cookie_path = "sl_cookies.pkl"
-
     get_token_payload = {
         "input_flow_data": {
             "flow_context": {
@@ -246,6 +244,7 @@ class TwitterLoginBot:
             self.do_task()
 
         # one more time to get longer ct0
+        display_msg("update to full ct0")
         self.do_task()
 
         self.save_cookies()
@@ -280,8 +279,6 @@ class TwitterLoginBot:
             self._headers["Content-Type"] = "application/json"
 
     def save_cookies(self):
-        cookie_path = os.path.join(pwd, TwitterLoginBot.saved_cookie_path)
-
         # make it compatible with selenium cookie
         full_cookie = [
             {
@@ -294,7 +291,7 @@ class TwitterLoginBot:
             for x in self._session.cookies
         ]
 
-        pickle.dump(full_cookie, open(cookie_path, "wb"))
+        pickle.dump(full_cookie, open(COOKIE_PATH, "wb"))
 
     def prepare_next_task(self, r):
         print(r.status_code)
@@ -431,9 +428,7 @@ class TwitterLoginBot:
 
 
 class TwitterBot:
-    saved_cookie_path = "sl_cookies.pkl"
-    saved_cursor_path = "api_cursor.yaml"
-
+    
     urls = {
         "badge_count_url": "https://api.twitter.com/2/badge_count/badge_count.json",
         "notification_all_url": "https://api.twitter.com/2/notifications/all.json",
@@ -537,8 +532,7 @@ class TwitterBot:
         self._headers["x-csrf-token"] = self._session.cookies.get("ct0")
 
     def load_cookies(self):
-        cookie_path = os.path.join(pwd, TwitterBot.saved_cookie_path)
-        cookies = pickle.load(open(cookie_path, "rb"))
+        cookies = pickle.load(open(COOKIE_PATH, "rb"))
         self.set_selenium_cookies(cookies)
 
     def refresh_cookie(self):
@@ -728,7 +722,7 @@ if __name__ == "__main__":
     TwitterLoginBot()
 
     bot = TwitterBot()
-    display_session_cookies(bot._session)
+    #display_session_cookies(bot._session)
     # bot.refresh_cookie()
     #bot.update_local_cursor('DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFgwhLgACwACAAAAC0FZWlliaFJQdHpNCAADjyMIvwAA')
     bot.get_notifications()
