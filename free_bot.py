@@ -17,19 +17,20 @@ import json
 import random
 import re
 
-
 from selenium_bot import SeleniumTwitterBot, save_yaml, load_yaml
 
 MAX_MSG_LEN = 50
 
 pwd = os.path.dirname(os.path.realpath(__file__))
 
-d = load_yaml("login.yaml")
+CONFIG_PATH = os.path.join(pwd, "apifree.yaml") 
 
-EMAIL = d['email']
-PASSWORD= d['password']
-SCREENNAME= d["screenname"]
-PHONENUMBER= d["phonenumber"]
+config_dict = load_yaml(CONFIG_PATH)
+
+EMAIL = config_dict["login"]['email']
+PASSWORD= config_dict["login"]['password']
+SCREENNAME= config_dict["login"]["screenname"]
+PHONENUMBER= config_dict["login"]["phonenumber"]
 
 
 def display_msg(msg):
@@ -558,12 +559,13 @@ class TwitterBot:
 
     def update_local_cursor(self, val):
         TwitterBot.notification_all_form["cursor"] = val
-        save_yaml({"latest_cursor": val}, TwitterBot.saved_cursor_path, "w")
+        config_dict["latest_cursor"] = val
+    
+        save_yaml(config_dict, CONFIG_PATH, "w")
 
     def load_cursor(self):
-        d = load_yaml(TwitterBot.saved_cursor_path)
-        if d:
-            TwitterBot.notification_all_form["cursor"] = d["latest_cursor"]
+        if len(config_dict["latest_cursor"])>0:
+            TwitterBot.notification_all_form["cursor"] = config_dict["latest_cursor"]
         print("after loading cursor:", TwitterBot.notification_all_form["cursor"])
 
     def update_remote_cursor(self, val):

@@ -45,14 +45,14 @@ def load_yaml(filepath):
         return None
 
 pwd = os.path.dirname(os.path.realpath(__file__))
+CONFIG_PATH = os.path.join(pwd, "apifree.yaml") 
 
+d = load_yaml(CONFIG_PATH)
 
-d = load_yaml("login.yaml")
-
-email = d['email']
-password = d['password']
-screenname = d["screenname"]
-phonenumber = d["phonenumber"]
+email = d["login"]['email']
+password = d["login"]['password']
+screenname = d["login"]["screenname"]
+phonenumber = d["login"]["phonenumber"]
 
 
 class SeleniumTwitterBot:
