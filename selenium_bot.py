@@ -153,8 +153,10 @@ class SeleniumTwitterBot:
             # driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=chrome_options)
             driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()))
         if current_platform == "Linux":
-            chrome_options.add_argument("--headless=new")
-            driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()))
+            firefox_options = webdriver.FirefoxOptions()
+            firefox_options.add_argument("--headless")
+            driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()),options=firefox_options)
+            #driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()))
         # user agent
         # driver.execute_cdp_cmd('Network.setUserAgentOverride', {"userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.5414.119 Safari/537.36'})
         print(driver.execute_script("return navigator.userAgent;"))
