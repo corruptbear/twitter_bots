@@ -47,12 +47,12 @@ def load_yaml(filepath):
 pwd = os.path.dirname(os.path.realpath(__file__))
 CONFIG_PATH = os.path.join(pwd, "apifree.yaml") 
 
-d = load_yaml(CONFIG_PATH)
+config_dict = load_yaml(CONFIG_PATH)
 
-email = d["login"]['email']
-password = d["login"]['password']
-screenname = d["login"]["screenname"]
-phonenumber = d["login"]["phonenumber"]
+EMAIL = config_dict["login"]['email']
+PASSWORD= config_dict["login"]['password']
+SCREENNAME= config_dict["login"]["screenname"]
+PHONENUMBER= config_dict["login"]["phonenumber"]
 
 
 class SeleniumTwitterBot:
@@ -244,7 +244,7 @@ class SeleniumTwitterBot:
         print(banner.text)
 
         # fill in email
-        self.input_xpath(email, SeleniumTwitterBot.email_input_xpath)
+        self.input_xpath(EMAIL, SeleniumTwitterBot.email_input_xpath)
 
         # test if the system requires screenname
         title = self.wait_and_find_element_xpath(SeleniumTwitterBot.title_xpath).text
@@ -257,10 +257,10 @@ class SeleniumTwitterBot:
             )
 
             # fill in screenname
-            self.input_xpath(screenname, SeleniumTwitterBot.warning_input_xpath)
+            self.input_xpath(SCREENNAME, SeleniumTwitterBot.warning_input_xpath)
 
         # fill in password
-        self.input_xpath(password, SeleniumTwitterBot.password_input_xpath)
+        self.input_xpath(PASSWORD, SeleniumTwitterBot.password_input_xpath)
 
     def twitter_login(self):
         # cookie refreshment? expiration? what will happen when one of the cookies expire?
@@ -298,7 +298,7 @@ class SeleniumTwitterBot:
             )
             print("On homepage!", self.driver.current_url)
         except:
-            self.input_xpath(phonenumber, SeleniumTwitterBot.phone_input_xpath)
+            self.input_xpath(PHONENUMBER, SeleniumTwitterBot.phone_input_xpath)
             self.wait_and_find_element_xpath(
                 SeleniumTwitterBot.phone_input_xpath
             ).send_keys(Keys.ENTER)
