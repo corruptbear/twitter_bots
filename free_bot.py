@@ -531,7 +531,13 @@ class TwitterBot:
         }
 
         self._session = requests.Session()
-        self.load_cookies()
+        
+        try:
+            self.load_cookies()
+        except:
+            #if the cookie does not exist
+            traceback.print_exc()
+            self.refresh_cookies()
 
         # display_session_cookies(self._session)
 
