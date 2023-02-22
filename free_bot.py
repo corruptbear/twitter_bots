@@ -84,9 +84,7 @@ def oracle(user):
         result = rule_eval(default_rule, rule_eval_vars)
 
     if result:
-        print(
-            f"ORACLE TIME!: id {user.user_id} name {user.screen_name} followers_count {user.followers_count} is bad"
-        )
+        print(f"ORACLE TIME!: id {user.user_id} name {user.screen_name} followers_count {user.followers_count} is bad")
         return True
     else:
         print(f"ORACLE TIME!: id {user.user_id} name {user.screen_name} is good")
@@ -270,9 +268,9 @@ class TwitterLoginBot:
         self._session = requests.Session()
 
         # get the flow_token
-        self.get_flow_token()
+        self.get_login_flow_token()
 
-        while int(self.flow_token.split(":")[-1]) != 17:
+        while int(self.login_flow_token.split(":")[-1]) != 17:
             self.do_task()
 
         # one more time to get longer ct0
@@ -326,26 +324,24 @@ class TwitterLoginBot:
 
         pickle.dump(full_cookie, open(COOKIE_PATH, "wb"))
 
-    def prepare_next_task(self, r):
+    def prepare_next_login_task(self, r):
         print(r.status_code)
         j = r.json()
-        self.flow_token = j["flow_token"]
+        self.login_flow_token = j["flow_token"]
         subtasks = j["subtasks"]
 
-        print("flow_token:", self.flow_token)
+        print("flow_token:", self.login_flow_token)
 
         for s in subtasks:
             print(s["subtask_id"])
 
     def do_task(self):
-        task = int(self.flow_token.split(":")[-1])
+        task = int(self.login_flow_token.split(":")[-1])
 
         # establish session and prepare for enter email
         if task == 0:
             self.customize_headers("get_js")
-            r = self._session.get(
-                "https://twitter.com/i/js_inst?c_name=ui_metrics", headers=self._headers
-            )
+            r = self._session.get("https://twitter.com/i/js_inst?c_name=ui_metrics", headers=self._headers)
 
             # should have _twitter_sess cookie now
             # display_session_cookies(self._session)
@@ -364,12 +360,10 @@ class TwitterLoginBot:
             # get rid of ending ;};
             m = m[:-3]
             double_quoted_m = m.replace("'", '"')
-            TwitterLoginBot.get_sso_payload["subtask_inputs"][0]["js_instrumentation"][
-                "response"
-            ] = double_quoted_m
+            TwitterLoginBot.get_sso_payload["subtask_inputs"][0]["js_instrumentation"]["response"] = double_quoted_m
 
             self.customize_headers("get_sso")
-            TwitterLoginBot.get_sso_payload["flow_token"] = self.flow_token
+            TwitterLoginBot.get_sso_payload["flow_token"] = self.login_flow_token
 
             r = self._session.post(
                 "https://api.twitter.com/1.1/onboarding/task.json",
@@ -380,7 +374,7 @@ class TwitterLoginBot:
         # enter email
         if task == 1:
             display_msg("enter email")
-            TwitterLoginBot.enter_email_payload["flow_token"] = self.flow_token
+            TwitterLoginBot.enter_email_payload["flow_token"] = self.login_flow_token
 
             r = self._session.post(
                 "https://api.twitter.com/1.1/onboarding/task.json",
@@ -391,7 +385,7 @@ class TwitterLoginBot:
         # enter alternative identifier
         if task == 7:
             display_msg("enter alternative identifier")
-            TwitterLoginBot.enter_alternative_id_payload["flow_token"] = self.flow_token
+            TwitterLoginBot.enter_alternative_id_payload["flow_token"] = self.login_flow_token
             r = self._session.post(
                 "https://api.twitter.com/1.1/onboarding/task.json",
                 headers=self._headers,
@@ -401,7 +395,7 @@ class TwitterLoginBot:
         # enter password
         if task == 8:
             display_msg("enter password")
-            TwitterLoginBot.enter_password_payload["flow_token"] = self.flow_token
+            TwitterLoginBot.enter_password_payload["flow_token"] = self.login_flow_token
             r = self._session.post(
                 "https://api.twitter.com/1.1/onboarding/task.json",
                 headers=self._headers,
@@ -411,9 +405,7 @@ class TwitterLoginBot:
         # duplication check
         if task == 11:
             display_msg("account duplication check")
-            TwitterLoginBot.account_duplication_check_payload[
-                "flow_token"
-            ] = self.flow_token
+            TwitterLoginBot.account_duplication_check_payload["flow_token"] = self.login_flow_token
             r = self._session.post(
                 "https://api.twitter.com/1.1/onboarding/task.json",
                 headers=self._headers,
@@ -421,16 +413,16 @@ class TwitterLoginBot:
             )
 
         if task == 17:
-            TwitterLoginBot.get_full_ct0_payload["flow_token"] = self.flow_token
+            TwitterLoginBot.get_full_ct0_payload["flow_token"] = self.login_flow_token
             r = self._session.post(
                 "https://api.twitter.com/1.1/onboarding/task.json",
                 headers=self._headers,
                 data=json.dumps(TwitterLoginBot.get_full_ct0_payload),
             )
 
-        self.prepare_next_task(r)
+        self.prepare_next_login_task(r)
 
-    def get_flow_token(self):
+    def get_login_flow_token(self):
         r = self._session.get("https://twitter.com/i/flow/login")
 
         # the gt value is not directly visible in the returned cookies; it's hidden in the returned html file's script
@@ -455,7 +447,7 @@ class TwitterLoginBot:
             params=TwitterLoginBot.get_token_payload,
         )
 
-        self.prepare_next_task(r)
+        self.prepare_next_login_task(r)
 
         # att is set by the response cookie
 
@@ -641,9 +633,7 @@ class TwitterBot:
 
         # ignore user already in block_list or white_list
         sorted_users = {
-            user_id: users[user_id]
-            for user_id in users
-            if (user_id not in block_list) and (user_id not in white_list)
+            user_id: users[user_id] for user_id in users if (user_id not in block_list) and (user_id not in white_list)
         }
 
         for user_id in sorted_users:
@@ -741,14 +731,10 @@ class TwitterBot:
 
         # includes like, retweet
         non_cursor_notification_entries = [
-            x
-            for x in non_cursor_entries
-            if "notification" in x["content"]["item"]["content"]
+            x for x in non_cursor_entries if "notification" in x["content"]["item"]["content"]
         ]
         # includes reply
-        non_cursor_tweet_entries = [
-            x for x in non_cursor_entries if "tweet" in x["content"]["item"]["content"]
-        ]
+        non_cursor_tweet_entries = [x for x in non_cursor_entries if "tweet" in x["content"]["item"]["content"]]
 
         display_msg("non_cursor_notification")
         # users_liked_your_tweet/user_liked_multiple_tweets/user_liked_tweets_about_you/generic_login_notification/
