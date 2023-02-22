@@ -18,19 +18,26 @@ import random
 import re
 
 from selenium_bot import SeleniumTwitterBot, save_yaml, load_yaml
+from rule_parser import rule_eval
 
 MAX_MSG_LEN = 50
 
 pwd = os.path.dirname(os.path.realpath(__file__))
-CONFIG_PATH = os.path.join(pwd, "apifree.yaml") 
+CONFIG_PATH = os.path.join(pwd, "apifree.yaml")
 COOKIE_PATH = os.path.join(pwd, "sl_cookies.pkl")
+WHITE_LIST_PATH = os.path.join(pwd, "white_list.yaml")
+BLOCK_LIST_PATH = os.path.join(pwd, "block_list.yaml")
+API_CONF_PATH = os.path.join(pwd, "conf.yaml")
 
 config_dict = load_yaml(CONFIG_PATH)
+block_list = load_yaml(BLOCK_LIST_PATH)
+white_list = load_yaml(WHITE_LIST_PATH)
+filtering_rule = load_yaml(API_CONF_PATH)["filtering_rule"]
 
-EMAIL = config_dict["login"]['email']
-PASSWORD= config_dict["login"]['password']
-SCREENNAME= config_dict["login"]["screenname"]
-PHONENUMBER= config_dict["login"]["phonenumber"]
+EMAIL = config_dict["login"]["email"]
+PASSWORD = config_dict["login"]["password"]
+SCREENNAME = config_dict["login"]["screenname"]
+PHONENUMBER = config_dict["login"]["phonenumber"]
 
 
 def display_msg(msg):
@@ -45,8 +52,11 @@ def display_session_cookies(s):
         print(x)
 
 
-
 def genct0():
+    """
+    Generated the ct0 cookie value.
+    Uses the method used in the js file of the website.
+    """
     import secrets
 
     random_value = secrets.token_bytes(32)
@@ -56,6 +66,31 @@ def genct0():
         s += hex(c)[-1]
 
     return s
+
+
+def oracle(user):
+    default_rule = "(followers_count < 5) or (days < 180)"
+    rule_eval_vars = {
+        "followers_count": user.followers_count,
+        "following_count": user.following_count,
+        "tweet_count": user.tweet_count,
+        "days": user.days,
+    }
+
+    try:
+        result = rule_eval(filtering_rule, rule_eval_vars)
+    except Exception as e:
+        print(e)
+        result = rule_eval(default_rule, rule_eval_vars)
+
+    if result:
+        print(
+            f"ORACLE TIME!: id {user.user_id} name {user.screen_name} followers_count {user.followers_count} is bad"
+        )
+        return True
+    else:
+        print(f"ORACLE TIME!: id {user.user_id} name {user.screen_name} is good")
+        return False
 
 
 @dataclasses.dataclass
@@ -154,9 +189,7 @@ class TwitterLoginBot:
                     "setting_responses": [
                         {
                             "key": "user_identifier",
-                            "response_data": {
-                                "text_data": {"result": EMAIL}
-                            },
+                            "response_data": {"text_data": {"result": EMAIL}},
                         }
                     ],
                     "link": "next_link",
@@ -233,7 +266,6 @@ class TwitterLoginBot:
             "Connection": "keep-alive",
             "TE": "trailers",
         }
-        
 
         self._session = requests.Session()
 
@@ -247,6 +279,7 @@ class TwitterLoginBot:
         display_msg("update to full ct0")
         self.do_task()
 
+        # save the cookies for reuse
         self.save_cookies()
 
         print("")
@@ -428,7 +461,6 @@ class TwitterLoginBot:
 
 
 class TwitterBot:
-    
     urls = {
         "badge_count_url": "https://api.twitter.com/2/badge_count/badge_count.json",
         "notification_all_url": "https://api.twitter.com/2/notifications/all.json",
@@ -535,12 +567,16 @@ class TwitterBot:
         cookies = pickle.load(open(COOKIE_PATH, "rb"))
         self.set_selenium_cookies(cookies)
 
-    def refresh_cookie(self):
-        b = SeleniumTwitterBot()
-        # new cookie will be saved from selenium
-        b.twitter_login_manual()
+    def refresh_cookies(self):
+        try:
+            b = TwitterLoginBot()
+            self.load_cookies()
+        except:
+            b = SeleniumTwitterBot()
+            # new cookie will be saved from selenium
+            b.twitter_login_manual()
 
-        self.set_selenium_cookies(b.driver.get_cookies())
+            self.set_selenium_cookies(b.driver.get_cookies())
 
     def get_badge_count(self):
         display_msg("get badge count")
@@ -554,11 +590,11 @@ class TwitterBot:
     def update_local_cursor(self, val):
         TwitterBot.notification_all_form["cursor"] = val
         config_dict["latest_cursor"] = val
-    
+
         save_yaml(config_dict, CONFIG_PATH, "w")
 
     def load_cursor(self):
-        if len(config_dict["latest_cursor"])>0:
+        if len(config_dict["latest_cursor"]) > 0:
             TwitterBot.notification_all_form["cursor"] = config_dict["latest_cursor"]
         print("after loading cursor:", TwitterBot.notification_all_form["cursor"])
 
@@ -596,6 +632,28 @@ class TwitterBot:
             print("successfully sent unblock post!")
         display_msg("unblock")
         print(r.status_code, r.text)
+
+    def handle_users(self, users):
+        """
+        Examine users coming from the notifications one by one.
+        Block bad users. Update the local block list.
+        """
+
+        # ignore user already in block_list or white_list
+        sorted_users = {
+            user_id: users[user_id]
+            for user_id in users
+            if (user_id not in block_list) and (user_id not in white_list)
+        }
+
+        for user_id in sorted_users:
+            user = sorted_users[user_id]
+
+            is_bad = oracle(user)
+
+            if is_bad:
+                block_list[user.user_id] = user.screen_name
+                save_yaml(block_list, BLOCK_LIST_PATH, "w")
 
     def get_notifications(self):
         """
@@ -639,6 +697,9 @@ class TwitterBot:
                 )
                 print(dataclasses.asdict(p))
                 logged_users[p.user_id] = p
+
+        # check the users
+        self.handle_users(logged_users)
 
         display_msg("globalObjects['tweets]")
         # all related tweets (being liked; being replied to; being quoted; other people's interaction with me)
@@ -690,7 +751,7 @@ class TwitterBot:
         ]
 
         display_msg("non_cursor_notification")
-        # users_liked_your_tweet/user_liked_multiple_tweets/generic_login_notification/
+        # users_liked_your_tweet/user_liked_multiple_tweets/user_liked_tweets_about_you/generic_login_notification/
         for x in non_cursor_notification_entries:
             print(x["sortIndex"], x["content"]["item"]["clientEventInfo"]["element"])
 
@@ -716,22 +777,23 @@ class TwitterBot:
                 self.latest_sortindex = x["sortIndex"]
 
                 self.update_local_cursor(cursor["value"])
-                # self.update_remote_latest_cursor() #will cause the badge to disappear
+                # self.update_remote_latest_cursor()  # will cause the badge to disappear
+
 
 if __name__ == "__main__":
-    TwitterLoginBot()
-
     bot = TwitterBot()
-    #display_session_cookies(bot._session)
+    # display_session_cookies(bot._session)
     # bot.refresh_cookie()
-    #bot.update_local_cursor('DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFgwhLgACwACAAAAC0FZWlliaFJQdHpNCAADjyMIvwAA')
-    bot.get_notifications()
+    # bot.update_local_cursor("DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFgwhLgACwACAAAAC0FZWlliaFJQdHpNCAADjyMIvwAA")
+    try:
+        bot.get_badge_count()
+    except:
+        bot.refresh_cookies()
 
-    bot.get_badge_count()
+    bot.get_notifications()
 
     # bot.block_user('44196397') #https://twitter.com/elonmusk (for test)
     print(TwitterBot.notification_all_form["cursor"], bot.latest_sortindex)
-
 
     """
     	def _get_api_data(self, endpoint, apiType, params):
