@@ -20,6 +20,7 @@ import secrets
 
 from selenium_bot import SeleniumTwitterBot, save_yaml, load_yaml
 from rule_parser import rule_eval
+from report import ReportHandler
 
 MAX_MSG_LEN = 50
 
@@ -66,27 +67,6 @@ def genct0():
         s += hex(c)[-1]
 
     return s
-    
-def gen_report_flow_id():  
-    """
-    Generated report_flow_id
-    Uses the method used in the js file of the website.
-    """  
-    
-    r = secrets.token_bytes(16)
-    
-    s= ""   
-    for i, c in enumerate(r):
-        d = c + 256 #make sure that small numbers are properly represented (double characters; not directly connected to "x")
-        #d = c
-        if i==6:
-            s += hex(d & 15 | 64)[-2:]
-        elif i==8:
-            s += hex(d & 63 | 128)[-2:]
-        else:
-            s += hex(d)[-2:]
-        
-    return s[:8] + '-' + s[8:12] + '-' + s[12:16] + '-' + s[16:20] + '-' + s[20:] 
 
 
 def oracle(user):
@@ -479,7 +459,6 @@ class TwitterLoginBot:
 
         # att is set by the response cookie
 
-
 class TwitterBot:
     urls = {
         "badge_count_url": "https://api.twitter.com/2/badge_count/badge_count.json",
@@ -534,65 +513,6 @@ class TwitterBot:
         "ext": "mediaStats,highlightedLabel,hasNftAvatar,voiceInfo,birdwatchPivot,enrichments,superFollowMetadata,unmentionInfo,editControl,collab_control,vibe",
     }
     
-    
-    report_get_token_form = {
-      "input_flow_data": {
-          "flow_context": {
-              "debug_overrides": {},
-              "start_location": {
-                  "location": "profile",
-                  "profile": {
-                      "profile_id": "3512101"
-                  }
-              }
-          }, 
-          "requested_variant": '{"client_app_id":"3033300","client_location":"profile:header:","client_referer":"/elonmusk","is_media":false,"is_promoted":false,"report_flow_id":"d3233935-4be9-45af-b27f-508f636882d6","reported_user_id":"44196397","source":"reportprofile"}'
-      },
-           
-      "subtask_versions": {
-        "action_list": 2,
-        "alert_dialog": 1,
-        "app_download_cta": 1,
-        "check_logged_in_account": 1,
-        "choice_selection": 3,
-        "contacts_live_sync_permission_prompt": 0,
-        "cta": 7,
-        "email_verification": 2,
-        "end_flow": 1,
-        "enter_date": 1,
-        "enter_email": 2,
-        "enter_password": 5,
-        "enter_phone": 2,
-        "enter_recaptcha": 1,
-        "enter_text": 5,
-        "enter_username": 2,
-        "generic_urt": 3,
-        "in_app_notification": 1,
-        "interest_picker": 3,
-        "js_instrumentation": 1,
-        "menu_dialog": 1,
-        "notifications_permission_prompt": 2,
-        "open_account": 2,
-        "open_home_timeline": 1,
-        "open_link": 1,
-        "phone_verification": 4,
-        "privacy_options": 1,
-        "security_key": 3,
-        "select_avatar": 4,
-        "select_banner": 2,
-        "settings_list": 7,
-        "show_code": 1,
-        "sign_up": 2,
-        "sign_up_review": 4,
-        "tweet_selection_urt": 1,
-        "update_users": 1,
-        "upload_media": 1,
-        "user_recommendations_list": 4,
-        "user_recommendations_urt": 1,
-        "wait_spinner": 3,
-        "web_modal": 1
-      }
-    }
 
     def __init__(self):
         self._headers = {
@@ -631,6 +551,8 @@ class TwitterBot:
 
         # when disabled, will use the default cursor
         self.load_cursor()
+        
+        self.reporter = ReportHandler(self._headers, self._session)
 
     def set_selenium_cookies(self, cookies):
         for x in cookies:
@@ -719,38 +641,9 @@ class TwitterBot:
         display_msg("unblock")
         print(r.status_code, r.text)
         
-    def report_profile(self):
-        
-        form = TwitterBot.report_get_token_form
-        
-        s = form["input_flow_data"]["requested_variant"]
-        
-        #replace report_flow_id using newly generated uuid
-        match = re.search(r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}", s)
-        old_uuid = match.group(0)    
-        s = s.replace(old_uuid,gen_report_flow_id())  
-        
-        #replace the number user id as new user id
-        match = re.search(r'"reported_user_id":"([0-9]+)"', s)
-        old_user_id = match.group(1)      
-        s = s.replace(old_user_id, "1572413488320114688")
-        
-        #replace the old screen_name
-        match =  re.search(r'"client_referer":"\/([a-z0-9]+)"', s)
-        old_screen_name = match.group(1)
-        s = s.replace(old_screen_name,"Zangmazi")
-
-        form["input_flow_data"]["requested_variant"] = s
-        
-        #set up the correct header
-        self._headers["Content-Type"] = "application/json"
-        
-        r = self._session.post("https://api.twitter.com/1.1/report/flow.json?flow_name=report-flow", headers=self._headers, data=json.dumps(form))
-            
-        print(r.status_code)     
-        
-        #delete the added header
-        del self._headers["Content-Type"]
+    def report_profile(self, screen_name, option_name, user_id = None):
+        #for reporting propaganda bots
+        self.reporter.report_spam(screen_name, option_name, user_id = user_id)
 
     def handle_users(self, users):
         """
@@ -902,7 +795,8 @@ if __name__ == "__main__":
         bot.get_badge_count()
     except:
         bot.refresh_cookies()
-    bot.report_profile()
+        
+    bot.report_profile("JoannaKuzma2", "GovBot")
 
     bot.get_notifications()
 
