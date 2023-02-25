@@ -173,7 +173,7 @@ class ReportHandler:
         s = s.replace(old_user_id, str(user_id))
 
         # replace the old screen_name
-        match = re.search(r'"client_referer":"\/([a-z0-9]+)"', s)
+        match = re.search(r'"client_referer":"\/([a-zA-Z0-9_]+)"', s)
         old_screen_name = match.group(1)
         s = s.replace(old_screen_name, screen_name)
 
@@ -234,11 +234,14 @@ class ReportHandler:
             headers=self._headers,
             data=json.dumps(diagnosis_payload),
         )
-        response = r.json()
-        self.flow_token = response["flow_token"]
+
         
         if r.status_code == 200:
             print("clicked yes in validation!")
+            response = r.json()
+            self.flow_token = response["flow_token"]
+        else:
+            print(r.status_code, "validation click failed")
 
     def handle_review_and_submit(self, context_text):
         review_submit_payload = ReportHandler.review_submit_payload
@@ -250,11 +253,15 @@ class ReportHandler:
             headers=self._headers,
             data=json.dumps(review_submit_payload),
         )
-        response = r.json()
-        self.flow_token = response["flow_token"]
 
         if r.status_code == 200:
             print("successfully submitted!")
+            response = r.json()
+            self.flow_token = response["flow_token"]
+        else:
+            print(r.status_code, "submit failed")
+            print(review_submit_payload)
+            print(r.text)
 
     def handle_completion(self):
         completion_payload = ReportHandler.completion_payload
@@ -269,6 +276,8 @@ class ReportHandler:
 
         if r.status_code == 200:
             print("successfully completed!")
+        else:
+            print(r.status_code)
 
     def report_spam(self, screen_name, option_name, user_id=None):
         choices = ReportHandler.options[option_name]["choices"]

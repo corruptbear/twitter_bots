@@ -94,23 +94,25 @@ def oracle(user):
 
 @dataclasses.dataclass
 class TwitterUserProfile:
-    user_id: int
+    user_id: int 
     screen_name: str
-    created_at: str
-    following_count: int
-    followers_count: int
-    tweet_count: int
-    days: int = dataclasses.field(init=False)
+    created_at: str = dataclasses.field(default=None)
+    following_count: int = dataclasses.field(default=None)
+    followers_count: int = dataclasses.field(default=None)
+    tweet_count: int = dataclasses.field(default=None)
+    days: int = dataclasses.field(init=False, default=None)
 
     def __post_init__(self):
-        current_time = datetime.now(timezone.utc)
-        created_time = (
-            datetime.strptime(self.created_at, "%a %b %d %H:%M:%S +0000 %Y")
-            .replace(tzinfo=timezone.utc)
-            .astimezone(tz.gettz())
-        )
-        time_diff = current_time - created_time
-        self.days = time_diff.days
+        if self.created_at is not None:
+            current_time = datetime.now(timezone.utc)
+            created_time = (
+                datetime.strptime(self.created_at, "%a %b %d %H:%M:%S +0000 %Y")
+                .replace(tzinfo=timezone.utc)
+                .astimezone(tz.gettz())
+            )
+            time_diff = current_time - created_time
+            self.days = time_diff.days
+
 
 
 class TwitterLoginBot:
@@ -642,8 +644,38 @@ class TwitterBot:
         print(r.status_code, r.text)
         
     def report_profile(self, screen_name, option_name, user_id = None):
-        #for reporting propaganda bots
-        self.reporter.report_spam(screen_name, option_name, user_id = user_id)
+        
+        if option_name == "GovBot":
+            #for reporting propaganda bots
+            self.reporter.report_spam(screen_name, option_name, user_id = user_id)
+        
+    def report_propaganda_hashtag(self, hashtag):
+        import snscrape.modules.twitter as sntwitter
+
+        x = sntwitter.TwitterHashtagScraper(hashtag)
+    
+        #report rate too high will make you black_listed
+        count = 0
+        
+        #only report once
+        abuser_list = {}
+        
+        for item in x.get_items():
+            
+            content = json.loads(item.json())
+            screen_name = content["user"]["username"]
+            
+            if screen_name in abuser_list:
+                continue
+            
+            user_id = content["user"]["id"]
+            abuser_list[screen_name] = user_id
+            print(count)
+            print(screen_name, user_id)
+            bot.report_profile(screen_name, "GovBot", user_id = user_id)
+            
+            count+=1
+            sleep(10)
 
     def handle_users(self, users):
         """
@@ -788,17 +820,20 @@ class TwitterBot:
 
 if __name__ == "__main__":
     bot = TwitterBot()
-    # display_session_cookies(bot._session)
-    # bot.refresh_cookie()
-    # bot.update_local_cursor("DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFgwhLgACwACAAAAC0FZWlliaFJQdHpNCAADjyMIvwAA")
+    #display_session_cookies(bot._session)
+    #bot.refresh_cookies()
+    #bot.update_local_cursor("DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFgwhLgACwACAAAAC0FZWlliaFJQdHpNCAADjyMIvwAA")
     try:
         bot.get_badge_count()
     except:
         bot.refresh_cookies()
         
-    bot.report_profile("JoannaKuzma2", "GovBot")
+    #bot.report_profile("KarenLoomis17", "GovBot", user_id = 1605874400816816128)
 
     bot.get_notifications()
+    
+    bot.report_propaganda_hashtag("ThisispureslanderthatChinahasestablishedasecretpolicedepartmentinEngland")
+          
 
     # bot.block_user('44196397') #https://twitter.com/elonmusk (for test)
     #print(TwitterBot.notification_all_form["cursor"], bot.latest_sortindex)
