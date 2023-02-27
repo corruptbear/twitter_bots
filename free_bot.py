@@ -94,7 +94,7 @@ def oracle(user):
 
 @dataclasses.dataclass
 class TwitterUserProfile:
-    user_id: int 
+    user_id: int
     screen_name: str
     created_at: str = dataclasses.field(default=None)
     following_count: int = dataclasses.field(default=None)
@@ -112,7 +112,6 @@ class TwitterUserProfile:
             )
             time_diff = current_time - created_time
             self.days = time_diff.days
-
 
 
 class TwitterLoginBot:
@@ -317,9 +316,9 @@ class TwitterLoginBot:
         cookie_dict = requests.utils.dict_from_cookiejar(self._session.cookies)
         # convert the dictionary back to a cookiejar object
         unique_cookiejar = requests.utils.cookiejar_from_dict(cookie_dict)
-        
+
         self._session.cookies = unique_cookiejar
-          
+
         # make it compatible with selenium cookie
         full_cookie = [
             {
@@ -461,6 +460,7 @@ class TwitterLoginBot:
 
         # att is set by the response cookie
 
+
 class TwitterBot:
     urls = {
         "badge_count_url": "https://api.twitter.com/2/badge_count/badge_count.json",
@@ -514,7 +514,6 @@ class TwitterBot:
         "cursor": "DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFMKJicACwACAAAAC0FZWlhveW1SNnNFCAADjyMIvwAA",
         "ext": "mediaStats,highlightedLabel,hasNftAvatar,voiceInfo,birdwatchPivot,enrichments,superFollowMetadata,unmentionInfo,editControl,collab_control,vibe",
     }
-    
 
     def __init__(self):
         self._headers = {
@@ -541,11 +540,11 @@ class TwitterBot:
         }
 
         self._session = requests.Session()
-        
+
         try:
             self.load_cookies()
         except:
-            #if the cookie does not exist
+            # if the cookie does not exist
             traceback.print_exc()
             self.refresh_cookies()
 
@@ -553,7 +552,7 @@ class TwitterBot:
 
         # when disabled, will use the default cursor
         self.load_cursor()
-        
+
         self.reporter = ReportHandler(self._headers, self._session)
 
     def set_selenium_cookies(self, cookies):
@@ -642,39 +641,37 @@ class TwitterBot:
             print("successfully sent unblock post!")
         display_msg("unblock")
         print(r.status_code, r.text)
-        
-    def report_profile(self, screen_name, option_name, user_id = None):
-        
+
+    def report_profile(self, screen_name, option_name, user_id=None, context_msg=None):
         if option_name == "GovBot":
-            #for reporting propaganda bots
-            self.reporter.report_spam(screen_name, option_name, user_id = user_id)
-        
-    def report_propaganda_hashtag(self, hashtag):
+            # for reporting propaganda bots
+            self.reporter.report_spam(screen_name, option_name, user_id=user_id, context_msg=context_msg)
+
+    def report_propaganda_hashtag(self, hashtag, context_msg=None):
         import snscrape.modules.twitter as sntwitter
 
         x = sntwitter.TwitterHashtagScraper(hashtag)
-    
-        #report rate too high will make you black_listed
+
+        # report rate too high will make you black_listed
         count = 0
-        
-        #only report once
+
+        # only report once
         abuser_list = {}
-        
+
         for item in x.get_items():
-            
             content = json.loads(item.json())
             screen_name = content["user"]["username"]
-            
+
             if screen_name in abuser_list:
                 continue
-            
+
             user_id = content["user"]["id"]
             abuser_list[screen_name] = user_id
             print(count)
             print(screen_name, user_id)
-            bot.report_profile(screen_name, "GovBot", user_id = user_id)
-            
-            count+=1
+            bot.report_profile(screen_name, "GovBot", user_id=user_id, context_msg=context_msg)
+
+            count += 1
             sleep(10)
 
     def handle_users(self, users):
@@ -820,23 +817,25 @@ class TwitterBot:
 
 if __name__ == "__main__":
     bot = TwitterBot()
-    #display_session_cookies(bot._session)
-    #bot.refresh_cookies()
-    #bot.update_local_cursor("DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFgwhLgACwACAAAAC0FZWlliaFJQdHpNCAADjyMIvwAA")
+    # display_session_cookies(bot._session)
+    # bot.refresh_cookies()
+    # bot.update_local_cursor("DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFgwhLgACwACAAAAC0FZWlliaFJQdHpNCAADjyMIvwAA")
     try:
         bot.get_badge_count()
     except:
         bot.refresh_cookies()
-        
-    #bot.report_profile("KarenLoomis17", "GovBot", user_id = 1605874400816816128)
 
-    bot.get_notifications()
-    
-    bot.report_propaganda_hashtag("ThisispureslanderthatChinahasestablishedasecretpolicedepartmentinEngland")
-          
+    # bot.report_profile("KarenLoomis17", "GovBot", user_id = 1605874400816816128)
+
+    # bot.get_notifications()
+
+    bot.report_propaganda_hashtag(
+        "媒体污蔑中国在英设有秘密警察局",
+        context_msg="this account is part of a coordinated campaingn from chinese government, it uses hashtags that are exclusively used by chinese state sponsored bots",
+    )
 
     # bot.block_user('44196397') #https://twitter.com/elonmusk (for test)
-    #print(TwitterBot.notification_all_form["cursor"], bot.latest_sortindex)
+    # print(TwitterBot.notification_all_form["cursor"], bot.latest_sortindex)
 
     """
     	def _get_api_data(self, endpoint, apiType, params):

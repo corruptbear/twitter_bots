@@ -235,7 +235,6 @@ class ReportHandler:
             data=json.dumps(diagnosis_payload),
         )
 
-        
         if r.status_code == 200:
             print("clicked yes in validation!")
             response = r.json()
@@ -279,7 +278,7 @@ class ReportHandler:
         else:
             print(r.status_code)
 
-    def report_spam(self, screen_name, option_name, user_id=None):
+    def report_spam(self, screen_name, option_name, user_id=None, context_msg=None):
         choices = ReportHandler.options[option_name]["choices"]
         # detail could be one of: ['SharingLinksOption', 'PostingSpamOption', 'LikeRetweetReplySpamOption', 'FakeEngagementOption', 'UsingMultipleAccountsOption', 'InflatingFollowshipOption', 'SomethingElseOption']
         target, how, detail = choices[0], choices[1], choices[2]
@@ -294,7 +293,11 @@ class ReportHandler:
         self.handle_single_choice(detail)
         self.handle_diagnosis()
 
-        context_text = ReportHandler.options[option_name]["context_text"]
+        if context_msg is not None:
+            context_text = context_msg
+        else:
+            # use default context text of the presets
+            context_text = ReportHandler.options[option_name]["context_text"]
 
         self.handle_review_and_submit(context_text)
         self.handle_completion()
