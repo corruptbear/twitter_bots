@@ -43,6 +43,28 @@ PASSWORD = config_dict["login"]["password"]
 SCREENNAME = config_dict["login"]["screenname"]
 PHONENUMBER = config_dict["login"]["phonenumber"]
 
+from revChatGPT.V1 import Chatbot
+
+
+def chatgpt_moderation(sentence):
+    # https://chat.openai.com/api/auth/session
+    chatbot = Chatbot(
+        config={
+            "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik1UaEVOVUpHTkVNMVFURTRNMEZCTWpkQ05UZzVNRFUxUlRVd1FVSkRNRU13UmtGRVFrRXpSZyJ9.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL3Byb2ZpbGUiOnsiZW1haWwiOiJ3YXdueDcxNkBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiZ2VvaXBfY291bnRyeSI6IlVTIn0sImh0dHBzOi8vYXBpLm9wZW5haS5jb20vYXV0aCI6eyJ1c2VyX2lkIjoidXNlci00VU9DZGFhSGR3N2pob3p3Y3Z5c2VlT3EifSwiaXNzIjoiaHR0cHM6Ly9hdXRoMC5vcGVuYWkuY29tLyIsInN1YiI6Imdvb2dsZS1vYXV0aDJ8MTA0MTIzMjI3OTA5NjQ3MzI3NzUxIiwiYXVkIjpbImh0dHBzOi8vYXBpLm9wZW5haS5jb20vdjEiLCJodHRwczovL29wZW5haS5vcGVuYWkuYXV0aDBhcHAuY29tL3VzZXJpbmZvIl0sImlhdCI6MTY3NzQ3MzAyMywiZXhwIjoxNjc4NjgyNjIzLCJhenAiOiJUZEpJY2JlMTZXb1RIdE45NW55eXdoNUU0eU9vNkl0RyIsInNjb3BlIjoib3BlbmlkIHByb2ZpbGUgZW1haWwgbW9kZWwucmVhZCBtb2RlbC5yZXF1ZXN0IG9yZ2FuaXphdGlvbi5yZWFkIG9mZmxpbmVfYWNjZXNzIn0.InfRXdyfRubck8YSm6X7RXAelafEvDn_b7Oj442MmsWH-yVgQpUxQJnoB6wVgM2YUi6P5Cf7zo4I7ppnVss-IRobWNv7T3Jle5Ds7O9twCxg7GKy_OAnJTTeu0LGIEUNNESfmwHuDb5hm0MkcwpVphHifmaOYqaeLCdvzoFQ7-JUQQr3dqX2W1zMwv4yC0T4GP5o0Wko5Sn7c23r4KgviY4jYGQhxM8OZTjNIJfQMCg-iyI_1BE9b6zMat5UD-zYxg5JydWRm85_h9qDkKp_qhpFMuxc12JzXiHNtDTsnsVu8j-gpzSjJfSkTu24a6bC8GdUwzZplI6ZCUsW5R2FnA"
+        }
+    )
+
+    prompt = f"is the chinese sentence '{sentence}' unfriendly, hostile, disrespectul, aggressive, misogynistic, harrassment (sexual or non-sexual), vulgar, insulting, or abusive？ assuming the recipient of this sentence has done nothing wrong. please answer the question using a single letter, if the answer is yes, use Y; if the answer if no, use N; do not add period"
+    response = ""
+
+    for data in chatbot.ask(prompt):
+        response = data["message"]
+
+    if response[0] == "Y":
+        return True
+    else:
+        return False
+
 
 def display_msg(msg):
     width = len(msg)
@@ -103,6 +125,7 @@ class TwitterUserProfile:
     followers_count: int = dataclasses.field(default=None)
     tweet_count: int = dataclasses.field(default=None)
     days: int = dataclasses.field(init=False, default=None)
+    name: str = dataclasses.field(default="", metadata={"keyword_only": True})
 
     def __post_init__(self):
         if self.created_at is not None:
@@ -738,18 +761,19 @@ class TwitterBot:
                 print(dataclasses.asdict(p))
                 logged_users[p.user_id] = p
 
-        # check the users
-        self.handle_users(logged_users)
-
         display_msg("globalObjects['tweets]")
+        id_indexed_tweets = {}
         # all related tweets (being liked; being replied to; being quoted; other people's interaction with me)
         if "tweets" in result["globalObjects"]:
             tweets = result["globalObjects"]["tweets"]
             for x in tweets:
                 tweet = tweets[x]
+                id_indexed_tweets[int(tweet["id"])] = tweet
                 print("convo id:", tweet["conversation_id"])
                 convo.add(tweet["conversation_id"])
-                print(tweet["created_at"], tweet["full_text"])
+                print(tweet["user_id"], tweet["created_at"], tweet["full_text"])
+
+        interacting_users = {}
 
         display_msg("globalObjects['notifications']")
         if "notifications" in result["globalObjects"]:
@@ -759,7 +783,9 @@ class TwitterBot:
                 # print(x, notification["message"]["text"])
 
                 for e in notification["message"]["entities"]:
-                    print(logged_users[int(e["ref"]["user"]["id"])])
+                    entry_user_id = int(e["ref"]["user"]["id"])
+                    # add the users appearing in notifications (do not include replies)
+                    interacting_users[entry_user_id] = logged_users[entry_user_id]
 
         display_msg("timeline")
         print("TIMELINE ID", result["timeline"]["id"])
@@ -785,7 +811,7 @@ class TwitterBot:
         non_cursor_tweet_entries = [x for x in non_cursor_entries if "tweet" in x["content"]["item"]["content"]]
 
         display_msg("non_cursor_notification")
-        # users_liked_your_tweet/user_liked_multiple_tweets/user_liked_tweets_about_you/generic_login_notification/
+        # users_liked_your_tweet/user_liked_multiple_tweets/user_liked_tweets_about_you/generic_login_notification/users_retweeted_your_tweet
         for x in non_cursor_notification_entries:
             print(x["sortIndex"], x["content"]["item"]["clientEventInfo"]["element"])
 
@@ -793,6 +819,12 @@ class TwitterBot:
         # user_replied_to_your_tweet/user_quoted_your_tweet
         for x in non_cursor_tweet_entries:
             print(x["sortIndex"], x["content"]["item"]["clientEventInfo"]["element"])
+            entry_user_id = id_indexed_tweets[int(x["content"]["item"]["content"]["tweet"]["id"])]["user_id"]
+            # add the users replying to me
+            interacting_users[entry_user_id] = logged_users[entry_user_id]
+
+        display_msg("check users interacting with me")
+        self.handle_users(interacting_users)
 
         print("")
         print("tweets VS non_cursor_entries", len(tweets), len(non_cursor_entries))
@@ -819,6 +851,8 @@ class TwitterBot:
         Returns a list of TwitterUserProfile.
         """
         # needs to have the br decoding library installed for requests to handle br compressed results
+
+        display_msg("get retweeters")
 
         headers = copy.deepcopy(self._headers)
 
@@ -879,10 +913,12 @@ class TwitterBot:
                             user["friends_count"],
                             user["followers_count"],
                             user["statuses_count"],
+                            name=user["name"],
                         )
                         users.append(p)
 
                     else:
+                        # otherwise the typename is UserUnavailable
                         print("cannot get user data", e["entryId"], e["content"]["itemContent"]["user_results"]["result"])
 
                 if e["content"]["entryType"] == "TimelineTimelineCursor":
@@ -911,7 +947,6 @@ class TwitterBot:
 
 if __name__ == "__main__":
     bot = TwitterBot()
-    # display_session_cookies(bot._session)
     # bot.refresh_cookies()
     # bot.update_local_cursor("DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFgwhLgACwACAAAAC0FZWlliaFJQdHpNCAADjyMIvwAA")
     try:
@@ -920,15 +955,13 @@ if __name__ == "__main__":
     except:
         bot.refresh_cookies()
 
-    # bot.get_notifications()
+    bot.get_notifications()
 
-    """
-    for x in bot.get_retweeters("https://twitter.com/SpokespersonCHN/status/1574967903052390400"):
-        match = re.search(r"[a-zA-Z]{6,8}[0-9]{7,8}", x.screen_name)
+    for x in bot.get_retweeters("https://twitter.com/SpokespersonCHN/status/1630193968993681410"):
+        match = re.search(r"[a-zA-Z]{6,8}[0-9]{8}", x.screen_name)
 
         if match:
-            print(x.screen_name, x.tweet_count / x.days)
-    """
+            print(x.screen_name, x.name, x.tweet_count / x.days)
 
     # bot.report_profile("KarenLoomis17", "GovBot", user_id = 1605874400816816128)
 
@@ -938,6 +971,8 @@ if __name__ == "__main__":
         context_msg="this account is part of a coordinated campaingn from chinese government, it uses hashtags that are exclusively used by chinese state sponsored bots",
     )
     """
+
+    print(chatgpt_moderation("女的生来就是做家务的"))
 
     # bot.block_user('44196397') #https://twitter.com/elonmusk (for test)
     # print(TwitterBot.notification_all_form["cursor"], bot.latest_sortindex)
