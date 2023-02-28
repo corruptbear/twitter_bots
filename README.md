@@ -35,6 +35,27 @@ login:
   screenname: your_actual_stuff_here
 ```
 
+## API-free twitter login
+<style>
+.mermaid {width:50% !important}
+</style>
+```mermaid
+stateDiagram
+
+    #classDef badBadEvent fill:#f00,color:white,font-weight:bold,stroke-width:2px,stroke:yellow
+    
+    BottomLoginBanner --> EnterEmail: Click Login Button
+    EnterEmail --> EnterScreenName: Enter Key
+    EnterEmail --> EnterPassword: Enter Key
+    EnterScreenName --> EnterPassword: Enter Key
+    EnterScreenName --> DenyLogin: Enter Key
+    EnterPassword --> HomePage: Enter Key
+    EnterPassword --> EnterPhone: Enter Key
+    EnterPhone --> HomePage: Enter Key
+    
+    #class EnterScreenName,EnterPhone badBadEvent
+```
+
 ## API bot config config
 put known friends in `white_list.yaml` line by line
 ```yaml
