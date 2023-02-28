@@ -24,7 +24,18 @@ pip3 install --upgrade pip
 pip3 install -r requirements.txt
 ```
 
-## config
+## API-free bot config
+you need to configure `apifree.yaml` before running `python3.9 free_bot.py`
+```yaml
+latest_cursor:
+login:
+  email: your_actual_stuff_here
+  password: your_actual_stuff_here
+  phonenumber: your_actual_stuff_here
+  screenname: your_actual_stuff_here
+```
+
+## API bot config config
 put known friends in `white_list.yaml` line by line
 ```yaml
 id1_of_your_friend: name1_of_your_friend
