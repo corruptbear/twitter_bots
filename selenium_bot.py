@@ -259,6 +259,11 @@ class SeleniumTwitterBot:
 
         # fill in password
         self.input_xpath(PASSWORD, SeleniumTwitterBot.password_input_xpath)
+        
+    def save_cookies(self):
+        pickle.dump(
+            self.driver.get_cookies(), open(COOKIE_PATH, "wb")
+        )
 
     def twitter_login(self):
         # cookie refreshment? expiration? what will happen when one of the cookies expire?
@@ -407,9 +412,7 @@ class SeleniumTwitterBot:
             # test autoblock
             # auto_block_user(driver,x)
 
-        pickle.dump(
-            self.driver.get_cookies(), open(COOKIE_PATH, "wb")
-        )
+        self.save_cookies()
 
 
 if __name__ == "__main__":

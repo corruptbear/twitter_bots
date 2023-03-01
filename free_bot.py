@@ -24,25 +24,6 @@ from selenium_bot import SeleniumTwitterBot, save_yaml, load_yaml
 from rule_parser import rule_eval
 from report import ReportHandler
 
-MAX_MSG_LEN = 50
-
-pwd = os.path.dirname(os.path.realpath(__file__))
-CONFIG_PATH = os.path.join(pwd, "apifree.yaml")
-COOKIE_PATH = os.path.join(pwd, "sl_cookies.pkl")
-WHITE_LIST_PATH = os.path.join(pwd, "white_list.yaml")
-BLOCK_LIST_PATH = os.path.join(pwd, "block_list.yaml")
-API_CONF_PATH = os.path.join(pwd, "conf.yaml")
-
-config_dict = load_yaml(CONFIG_PATH)
-block_list = load_yaml(BLOCK_LIST_PATH)
-white_list = load_yaml(WHITE_LIST_PATH)
-filtering_rule = load_yaml(API_CONF_PATH)["filtering_rule"]
-
-EMAIL = config_dict["login"]["email"]
-PASSWORD = config_dict["login"]["password"]
-SCREENNAME = config_dict["login"]["screenname"]
-PHONENUMBER = config_dict["login"]["phonenumber"]
-
 from revChatGPT.V1 import Chatbot
 
 
@@ -67,9 +48,7 @@ def chatgpt_moderation(sentence):
 
 
 def display_msg(msg):
-    width = len(msg)
-    print("")
-    print("." * (MAX_MSG_LEN - width) + msg)
+    print(f"\n{msg:.>50}")
 
 
 def display_session_cookies(s):
@@ -93,7 +72,7 @@ def genct0():
     return s
 
 
-def oracle(user):
+def oracle(user, filtering_rule):
     default_rule = "(followers_count < 5) or (days < 180)"
     rule_eval_vars = {
         "followers_count": user.followers_count,
@@ -107,13 +86,8 @@ def oracle(user):
     except Exception as e:
         print(e)
         result = rule_eval(default_rule, rule_eval_vars)
-
-    if result:
-        print(f"ORACLE TIME!: id {user.user_id} name {user.screen_name} followers_count {user.followers_count} is bad")
-        return True
-    else:
-        print(f"ORACLE TIME!: id {user.user_id} name {user.screen_name} is good")
-        return False
+        
+    return result
 
 
 @dataclasses.dataclass
@@ -201,43 +175,7 @@ class TwitterLoginBot:
         ],
     }
 
-    enter_email_payload = {
-        "flow_token": "g;167658632144249788:-1676586337028:ZJlPGfGY6fmt0YNIvwX5MhR5:1",
-        "subtask_inputs": [
-            {
-                "subtask_id": "LoginEnterUserIdentifierSSO",
-                "settings_list": {
-                    "setting_responses": [
-                        {
-                            "key": "user_identifier",
-                            "response_data": {"text_data": {"result": EMAIL}},
-                        }
-                    ],
-                    "link": "next_link",
-                },
-            }
-        ],
-    }
-
-    enter_alternative_id_payload = {
-        "flow_token": "g;167669570499095475:-1676695708216:wfmlDaSgvN5ydOS4EI5oJvr6:7",
-        "subtask_inputs": [
-            {
-                "subtask_id": "LoginEnterAlternateIdentifierSubtask",
-                "enter_text": {"text": SCREENNAME, "link": "next_link"},
-            }
-        ],
-    }
-
-    enter_password_payload = {
-        "flow_token": "g;167658632144249788:-1676586337028:ZJlPGfGY6fmt0YNIvwX5MhR5:8",
-        "subtask_inputs": [
-            {
-                "subtask_id": "LoginEnterPassword",
-                "enter_password": {"password": PASSWORD, "link": "next_link"},
-            }
-        ],
-    }
+    
 
     account_duplication_check_payload = {
         "flow_token": "g;167658632144249788:-1676586337028:ZJlPGfGY6fmt0YNIvwX5MhR5:11",
@@ -264,7 +202,7 @@ class TwitterLoginBot:
         17: "LoginSuccessSubtask",
     }
 
-    def __init__(self):
+    def __init__(self, cookie_path = None, config_dict = None):
         self._headers = {
             "Host": "api.twitter.com",
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:109.0) Gecko/20100101 Firefox/109.0",
@@ -289,7 +227,11 @@ class TwitterLoginBot:
         }
 
         self._session = requests.Session()
-
+        
+        self._cookie_path = cookie_path
+        self._config_dict = config_dict
+        self.load_config()
+        
         # get the flow_token
         self.get_login_flow_token()
 
@@ -315,7 +257,51 @@ class TwitterLoginBot:
         display_msg("block")
         print(r.status_code, r.text)
         """
+    def load_config(self):
+        EMAIL = self._config_dict["login"]["email"]
+        PASSWORD = self._config_dict["login"]["password"]
+        SCREENNAME = self._config_dict["login"]["screenname"]
+        PHONENUMBER = self._config_dict["login"]["phonenumber"]
+        
+        self.enter_email_payload = {
+            "flow_token": "g;167658632144249788:-1676586337028:ZJlPGfGY6fmt0YNIvwX5MhR5:1",
+            "subtask_inputs": [
+                {
+                    "subtask_id": "LoginEnterUserIdentifierSSO",
+                    "settings_list": {
+                        "setting_responses": [
+                            {
+                                "key": "user_identifier",
+                                "response_data": {"text_data": {"result": EMAIL}},
+                            }
+                        ],
+                        "link": "next_link",
+                    },
+                }
+            ],
+        }
 
+        self.enter_alternative_id_payload = {
+            "flow_token": "g;167669570499095475:-1676695708216:wfmlDaSgvN5ydOS4EI5oJvr6:7",
+            "subtask_inputs": [
+                {
+                    "subtask_id": "LoginEnterAlternateIdentifierSubtask",
+                    "enter_text": {"text": SCREENNAME, "link": "next_link"},
+                }
+            ],
+        }
+
+        self.enter_password_payload = {
+            "flow_token": "g;167658632144249788:-1676586337028:ZJlPGfGY6fmt0YNIvwX5MhR5:8",
+            "subtask_inputs": [
+                {
+                    "subtask_id": "LoginEnterPassword",
+                    "enter_password": {"password": PASSWORD, "link": "next_link"},
+                }
+            ],
+        }
+        
+        
     def customize_headers(self, case):
         if case == "get_js":
             self._headers["Sec-Fetch-Mode"] = "no-cors"
@@ -352,7 +338,8 @@ class TwitterLoginBot:
             for x in self._session.cookies
         ]
 
-        pickle.dump(full_cookie, open(COOKIE_PATH, "wb"))
+        pickle.dump(full_cookie, open(self._cookie_path, "wb"))
+        display_msg("cookies from requests saved")
 
     def prepare_next_login_task(self, r):
         print(r.status_code)
@@ -404,32 +391,32 @@ class TwitterLoginBot:
         # enter email
         if task == 1:
             display_msg("enter email")
-            TwitterLoginBot.enter_email_payload["flow_token"] = self.login_flow_token
+            self.enter_email_payload["flow_token"] = self.login_flow_token
 
             r = self._session.post(
                 "https://api.twitter.com/1.1/onboarding/task.json",
                 headers=self._headers,
-                data=json.dumps(TwitterLoginBot.enter_email_payload),
+                data=json.dumps(self.enter_email_payload),
             )
 
         # enter alternative identifier
         if task == 7:
             display_msg("enter alternative identifier")
-            TwitterLoginBot.enter_alternative_id_payload["flow_token"] = self.login_flow_token
+            self.enter_alternative_id_payload["flow_token"] = self.login_flow_token
             r = self._session.post(
                 "https://api.twitter.com/1.1/onboarding/task.json",
                 headers=self._headers,
-                data=json.dumps(TwitterLoginBot.enter_alternative_id_payload),
+                data=json.dumps(self.enter_alternative_id_payload),
             )
 
         # enter password
         if task == 8:
             display_msg("enter password")
-            TwitterLoginBot.enter_password_payload["flow_token"] = self.login_flow_token
+            self.enter_password_payload["flow_token"] = self.login_flow_token
             r = self._session.post(
                 "https://api.twitter.com/1.1/onboarding/task.json",
                 headers=self._headers,
-                data=json.dumps(TwitterLoginBot.enter_password_payload),
+                data=json.dumps(self.enter_password_payload),
             )
 
         # duplication check
@@ -454,20 +441,28 @@ class TwitterLoginBot:
 
     def get_login_flow_token(self):
         r = self._session.get("https://twitter.com/i/flow/login")
-
-        # the gt value is not directly visible in the returned cookies; it's hidden in the returned html file's script
-        match = re.search(
-            r'document\.cookie = decodeURIComponent\("gt=(\d+); Max-Age=10800; Domain=\.twitter\.com; Path=/; Secure"\);',
-            r.text,
-        )
-        self._session.cookies.set("gt", match.group(1))
+        
+        try:
+            # the gt value is not directly visible in the returned cookies; it's hidden in the returned html file's script
+            match = re.search(
+                r'document\.cookie = decodeURIComponent\("gt=(\d+); Max-Age=10800; Domain=\.twitter\.com; Path=/; Secure"\);',
+                r.text,
+            )
+            self._session.cookies.set("gt", match.group(1))
+            self._headers["x-guest-token"] = str(self._session.cookies.get("gt"))
+            
+        except:
+            display_msg("cannot find guest token from the webpage")
+            r = self._session.post('https://api.twitter.com/1.1/guest/activate.json', data = b'', headers = self._headers)
+            if r.status_code == 200:
+                self._headers["x-guest-token"] = r.json()["guest_token"]
+                display_msg("got guest token from the endpoint")
 
         # the ct0 value is just a random 32-character string generated from random bytes at client side
         self._session.cookies.set("ct0", genct0())
 
         # set the headers accordingly
         self._headers["x-csrf-token"] = self._session.cookies.get("ct0")
-        self._headers["x-guest-token"] = str(self._session.cookies.get("gt"))
 
         # display_session_cookies(self._session)
 
@@ -538,9 +533,9 @@ class TwitterBot:
         "ext": "mediaStats,highlightedLabel,hasNftAvatar,voiceInfo,birdwatchPivot,enrichments,superFollowMetadata,unmentionInfo,editControl,collab_control,vibe",
     }
 
-    def __init__(self):
+    def __init__(self, cookie_path=None, config_path = None, white_list_path = None, block_list_path = None, filtering_rule = None):
         self._headers = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:109.0) Gecko/20100101 Firefox/109.0",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:110.0) Gecko/20100101 Firefox/110.0",
             "Accept": "*/*",
             "Accept-Language": "en-US,en;q=0.5",
             "Accept-Encoding": "gzip, deflate, br",
@@ -563,6 +558,16 @@ class TwitterBot:
         }
 
         self._session = requests.Session()
+        
+        self._cookie_path = cookie_path
+        self._config_path = config_path
+        self._config_dict = load_yaml(config_path)
+        
+        self._white_list_path = white_list_path
+        self._block_list_path = block_list_path
+        self._block_list = load_yaml(self._block_list_path)
+        self._white_list = load_yaml(self._white_list_path)
+        self._filtering_rule = filtering_rule
 
         try:
             self.load_cookies()
@@ -579,6 +584,7 @@ class TwitterBot:
         self.reporter = ReportHandler(self._headers, self._session)
 
     def set_selenium_cookies(self, cookies):
+        display_msg("setting cookies from selenium")
         for x in cookies:
             print(x)
             otherinfo = dict()
@@ -596,17 +602,25 @@ class TwitterBot:
         self._headers["x-csrf-token"] = self._session.cookies.get("ct0")
 
     def load_cookies(self):
-        cookies = pickle.load(open(COOKIE_PATH, "rb"))
+        display_msg("loading cookies")
+        cookies = pickle.load(open(self._cookie_path, "rb"))
         self.set_selenium_cookies(cookies)
 
     def refresh_cookies(self):
+        """
+        Try to get the cookies through requests first. 
+        If it does not work, use Selenium to get the cookies
+        """
         try:
-            b = TwitterLoginBot()
+            display_msg("trying using requests to get cookies")
+            b = TwitterLoginBot(cookie_path = self._cookie_path, config_dict = self._config_dict)
             self.load_cookies()
         except:
+            display_msg("trying using selenium to get cookies")
             b = SeleniumTwitterBot()
             # new cookie will be saved from selenium
-            b.twitter_login_manual()
+            b.twitter_login()
+            b.save_cookies()
 
             self.set_selenium_cookies(b.driver.get_cookies())
 
@@ -621,13 +635,13 @@ class TwitterBot:
 
     def update_local_cursor(self, val):
         TwitterBot.notification_all_form["cursor"] = val
-        config_dict["latest_cursor"] = val
+        self._config_dict["latest_cursor"] = val
 
-        save_yaml(config_dict, CONFIG_PATH, "w")
+        save_yaml(self._config_dict, self._config_path, "w")
 
     def load_cursor(self):
-        if len(config_dict["latest_cursor"]) > 0:
-            TwitterBot.notification_all_form["cursor"] = config_dict["latest_cursor"]
+        if len(self._config_dict["latest_cursor"]) > 0:
+            TwitterBot.notification_all_form["cursor"] = self._config_dict["latest_cursor"]
         print("after loading cursor:", TwitterBot.notification_all_form["cursor"])
 
     def update_remote_cursor(self, val):
@@ -705,18 +719,22 @@ class TwitterBot:
         """
 
         # ignore user already in block_list or white_list
-        sorted_users = {user_id: users[user_id] for user_id in users if (user_id not in block_list) and (user_id not in white_list)}
+        sorted_users = {user_id: users[user_id] for user_id in users if (user_id not in self._block_list) and (user_id not in self._white_list)}
 
         for user_id in sorted_users:
             user = sorted_users[user_id]
 
-            is_bad = oracle(user)
+            is_bad = oracle(user, self._filtering_rule)
+            
+            conclusion_str = "bad" if is_bad else "good"
 
             if is_bad:
                 # TODO: actually block the bad user
 
-                block_list[user.user_id] = user.screen_name
-                save_yaml(block_list, BLOCK_LIST_PATH, "w")
+                self._block_list[user.user_id] = user.screen_name
+                save_yaml(self._block_list, self._block_list_path, "w")
+ 
+            print(f"ORACLE TIME!: id {user.user_id:<25} name {user.screen_name:<20} followers_count {user.followers_count:<10} is {conclusion_str}")
 
     def get_notifications(self):
         """
@@ -732,17 +750,16 @@ class TwitterBot:
         r = self._session.get(url, headers=self._headers, params=notification_all_form)
 
         display_msg("notifications/all.json")
-        print(r.status_code, r.headers["content-length"])
+        print(f"status_code: {r.status_code}, length: {r.headers['content-length']}")
 
         result = r.json()
 
-        display_msg("notifications/all.json")
         print("result keys:", result.keys())
 
         convo = set()
         tweets, notifications = [], []
 
-        print("globalObjects keys:", result["globalObjects"].keys())
+        print("globalObjects keys:", result["globalObjects"].keys(),"\n")
 
         logged_users = {}
 
@@ -810,12 +827,12 @@ class TwitterBot:
         # includes reply
         non_cursor_tweet_entries = [x for x in non_cursor_entries if "tweet" in x["content"]["item"]["content"]]
 
-        display_msg("non_cursor_notification")
+        display_msg("timeline: non_cursor_notification")
         # users_liked_your_tweet/user_liked_multiple_tweets/user_liked_tweets_about_you/generic_login_notification/users_retweeted_your_tweet
         for x in non_cursor_notification_entries:
             print(x["sortIndex"], x["content"]["item"]["clientEventInfo"]["element"])
 
-        display_msg("non_cursor_tweets")
+        display_msg("timeline: non_cursor_tweets")
         # user_replied_to_your_tweet/user_quoted_your_tweet
         for x in non_cursor_tweet_entries:
             print(x["sortIndex"], x["content"]["item"]["clientEventInfo"]["element"])
@@ -826,8 +843,7 @@ class TwitterBot:
         display_msg("check users interacting with me")
         self.handle_users(interacting_users)
 
-        print("")
-        print("tweets VS non_cursor_entries", len(tweets), len(non_cursor_entries))
+        print("\ntweets VS non_cursor_entries", len(tweets), len(non_cursor_entries))
         print(
             "notifications VS non_cursor_notification",
             len(notifications),
@@ -946,9 +962,20 @@ class TwitterBot:
 
 
 if __name__ == "__main__":
-    bot = TwitterBot()
+    pwd = os.path.dirname(os.path.realpath(__file__))
+    
+    COOKIE_PATH = os.path.join(pwd, "sl_cookies.pkl")
+    CONFIG_PATH = os.path.join(pwd, "apifree.yaml")
+    
+    WHITE_LIST_PATH = os.path.join(pwd, "white_list.yaml")
+    BLOCK_LIST_PATH = os.path.join(pwd, "block_list.yaml")
+    API_CONF_PATH = os.path.join(pwd, "conf.yaml")
+
+    filtering_rule = load_yaml(API_CONF_PATH)["filtering_rule"]
+    
+    bot = TwitterBot(cookie_path = COOKIE_PATH, config_path = CONFIG_PATH, white_list_path = WHITE_LIST_PATH, block_list_path = BLOCK_LIST_PATH, filtering_rule = filtering_rule)
     # bot.refresh_cookies()
-    # bot.update_local_cursor("DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFgwhLgACwACAAAAC0FZWlliaFJQdHpNCAADjyMIvwAA")
+    #bot.update_local_cursor("DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFgwhLgACwACAAAAC0FZWlliaFJQdHpNCAADjyMIvwAA")
     try:
         # use a small query to test the validity of cookies
         bot.get_badge_count()
@@ -957,11 +984,14 @@ if __name__ == "__main__":
 
     bot.get_notifications()
 
-    for x in bot.get_retweeters("https://twitter.com/SpokespersonCHN/status/1630193968993681410"):
-        match = re.search(r"[a-zA-Z]{6,8}[0-9]{8}", x.screen_name)
+    for x in bot.get_retweeters("https://twitter.com/SpokespersonCHN/status/1628397657462034432"):
+        #match = re.search(r"[a-zA-Z]{6,8}[0-9]{8}", x.screen_name)
+        if "🇨🇳" in x.name:
+            print(f"{x.screen_name:<20} following: {x.following_count:>9}, follower: {x.followers_count:>9}, tweet_per_day: {x.tweet_count / (x.days + 0.05):>8.2f}")
+            
 
-        if match:
-            print(x.screen_name, x.name, x.tweet_count / x.days)
+        #if match:
+        #    print(x.screen_name, x.name, x.tweet_count / x.days)
 
     # bot.report_profile("KarenLoomis17", "GovBot", user_id = 1605874400816816128)
 
@@ -972,7 +1002,7 @@ if __name__ == "__main__":
     )
     """
 
-    print(chatgpt_moderation("女的生来就是做家务的"))
+    #print(chatgpt_moderation("女的生来就是做家务的"))
 
     # bot.block_user('44196397') #https://twitter.com/elonmusk (for test)
     # print(TwitterBot.notification_all_form["cursor"], bot.latest_sortindex)
