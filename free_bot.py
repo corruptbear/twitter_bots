@@ -736,7 +736,7 @@ class TwitterBot:
 
     def get_notifications(self):
         """
-        Gets the new notifications from the API.
+        Gets the recent notifications from the API.
 
         Whenever there is new notification, or you perform operations like block/unblock, mute/unmute, you will get new stuff here.
 
@@ -859,11 +859,14 @@ class TwitterBot:
                 self.update_local_cursor(cursor["value"])
                 # self.update_remote_latest_cursor()  # will cause the badge to disappear
 
-    def _cursor_and_users_from_instructions(self, instructions):
-        entries = [x for x in instructions if x["type"] == "TimelineAddEntries"][0]["entries"]
+    def _cursor_from_entries(self, entries):
+        for e in entries[-2:]:
+            content = e["content"]
+            if content["entryType"] == "TimelineTimelineCursor":
+                if content["cursorType"] == "Bottom":
+                    return content["value"]
 
-        users, bottom_cursor = [], ""
-
+    def _users_from_entries(self, entries):
         for e in entries:
             content = e["content"]
             if content["entryType"] == "TimelineTimelineItem":
@@ -879,23 +882,60 @@ class TwitterBot:
                         user["statuses_count"],
                         name=user["name"],
                     )
-                    users.append(p)
+    
+                    yield p
 
                 else:
                     # otherwise the typename is UserUnavailable
                     print("cannot get user data", e["entryId"], content["itemContent"]["user_results"]["result"])
 
-            if content["entryType"] == "TimelineTimelineCursor":
-                if content["cursorType"] == "Bottom":
-                    bottom_cursor = content["value"]
+    def _json_headers(self):
+        headers = copy.deepcopy(self._headers)
+        headers["Content-Type"] = "application/json"
+        headers["Host"] = "twitter.com"
 
-        return bottom_cursor, users
+        return headers
 
-    def get_followers(self, user_id, max_count=None):
+    def _navigate_graphql_entries(self, url, headers, form):
+        while True:
+            encoded_params = urlencode({k: json.dumps(form[k], separators=(",", ":")) for k in form})
+            r = self._session.get(url, headers=headers, params=encoded_params)
+
+            response = r.json()
+            data = response["data"]
+
+            if "retweeters_timeline" in data:
+                instructions = data["retweeters_timeline"]["timeline"]["instructions"]
+            else:
+                instructions = data["user"]["result"]["timeline"]["timeline"]["instructions"]
+
+            entries = [x for x in instructions if x["type"] == "TimelineAddEntries"][0]["entries"]
+
+            # not getting entries anymore
+            if len(entries) <= 2:
+                break
+
+            yield entries
+
+            bottom_cursor = self._cursor_from_entries(entries)
+            form["variables"]["cursor"] = bottom_cursor
+
+    def get_followers(self, user_id):
+        """
+        Gets the list of followers.
+        Returns a list of TwitterUserProfile.
+        """
+
+        display_msg("get followers")
+
+        headers = self._json_headers()
+
+        url = TwitterBot.urls["followers_url"]
+
         form = {
             "variables": {
                 "userId": None,
-                "count": 80,
+                "count": 100,
                 "includePromotedContent": False,
                 "withSuperFollowsUserFields": True,
                 "withDownvotePerspective": False,
@@ -926,40 +966,13 @@ class TwitterBot:
             },
         }
 
-        url = TwitterBot.urls["followers_url"]
-
-        headers = copy.deepcopy(self._headers)
-        headers["Content-Type"] = "application/json"
-        headers["Host"] = "twitter.com"
-
-        # set tweetId in form
+        # set userID in form
         form["variables"]["userId"] = str(user_id)
 
-        users_collection = []
+        for entries in self._navigate_graphql_entries(url, headers, form):
+            yield from self._users_from_entries(entries)
 
-        while True:
-            encoded_params = urlencode({k: json.dumps(form[k], separators=(",", ":")) for k in form})
-            r = self._session.get(url, headers=headers, params=encoded_params)
-            # print("get followers:",r.status_code, r.text)
-            response = r.json()
-
-            instructions = response["data"]["user"]["result"]["timeline"]["timeline"]["instructions"]
-            bottom_cursor, users = self._cursor_and_users_from_instructions(instructions)
-
-            form["variables"]["cursor"] = bottom_cursor
-            users_collection = users_collection + users
-            print(len(users_collection), bottom_cursor)
-
-            # loop until no new data could be obtained
-            if len(users) == 0:
-                break
-
-            if max_count and len(users_collection) >= max_count:
-                break
-
-        return users_collection
-
-    def get_retweeters(self, tweet_url, max_count=None):
+    def get_retweeters(self, tweet_url):
         """
         Gets the list of visible (not locked) retweeters.
         Returns a list of TwitterUserProfile.
@@ -968,17 +981,14 @@ class TwitterBot:
 
         display_msg("get retweeters")
 
-        headers = copy.deepcopy(self._headers)
-
-        headers["Content-Type"] = "application/json"
-        headers["Host"] = "twitter.com"
+        headers = self._json_headers()
 
         url = TwitterBot.urls["retweeters_url"]
 
         form = {
             "variables": {
                 "tweetId": 0,
-                "count": 80,
+                "count": 100,
                 "includePromotedContent": True,
                 "withSuperFollowsUserFields": True,
                 "withDownvotePerspective": False,
@@ -1011,27 +1021,8 @@ class TwitterBot:
         # set tweetId in form
         form["variables"]["tweetId"] = tweet_url.split("/")[-1]
 
-        users_collection = []
-
-        while True:
-            encoded_params = urlencode({k: json.dumps(form[k], separators=(",", ":")) for k in form})
-            r = self._session.get(url, headers=headers, params=encoded_params)
-            response = r.json()
-
-            instructions = response["data"]["retweeters_timeline"]["timeline"]["instructions"]
-            bottom_cursor, users = self._cursor_and_users_from_instructions(instructions)
-            form["variables"]["cursor"] = bottom_cursor
-            users_collection = users_collection + users
-            print(len(users_collection), bottom_cursor)
-
-            # loop until no new data could be obtained
-            if len(users) == 0:
-                break
-
-            if max_count and len(users_collection) >= max_count:
-                break
-
-        return users_collection
+        for entries in self._navigate_graphql_entries(url, headers, form):
+            yield from self._users_from_entries(entries)
 
 
 if __name__ == "__main__":
@@ -1063,13 +1054,21 @@ if __name__ == "__main__":
 
     bot.get_notifications()
 
-    for x in bot.get_followers(1183698123719200768, max_count=2000):
+    count = 0
+    # bot.get_retweeters("https://twitter.com/Anaimiya/status/1628281803407790080")
+    # bot.get_followers(44196397)
+    for x in bot.get_retweeters("https://twitter.com/Anaimiya/status/1628281803407790080"):
+        count += 1
+        if count % 100 == 0:
+            print(count)
         # match = re.search(r"[a-zA-Z]{6,8}[0-9]{8}", x.screen_name)
-        if "🇨🇳" in x.name:
-            print(x.name)
+        if "us" in x.name:
             print(
-                f"{x.screen_name:<20} following: {x.following_count:>9}, follower: {x.followers_count:>9}, tweet_per_day: {x.tweet_count / (x.days_since_registration + 0.05):>8.2f}"
+                f"{x.screen_name:<20} following: {x.following_count:>9}, follower: {x.followers_count:>9}, tweet_per_day: {x.tweet_count / (x.days_since_registration + 0.05):>8.4f}"
             )
+
+        if count == 500:
+            break
 
         # if match:
         #    print(x.screen_name, x.name, x.tweet_count / x.days_since_registration)
@@ -1078,12 +1077,10 @@ if __name__ == "__main__":
 
     """
     bot.report_propaganda_hashtag(
-        "媒体污蔑中国在英设有秘密警察局",
+        "ThisispureslanderthatChinahasestablishedasecretpolicedepartmentinEngland",
         context_msg="this account is part of a coordinated campaingn from chinese government, it uses hashtags that are exclusively used by chinese state sponsored bots",
     )
     """
-
-    # print(chatgpt_moderation("女的生来就是做家务的"))
 
     # bot.block_user('44196397') #https://twitter.com/elonmusk (for test)
     # print(TwitterBot.notification_all_form["cursor"], bot.latest_sortindex)
