@@ -560,11 +560,19 @@ class TwitterBot:
         self._cookie_path = cookie_path
         self._config_path = config_path
         self._config_dict = load_yaml(config_path)
-
-        self._white_list_path = white_list_path
+       
         self._block_list_path = block_list_path
-        self._block_list = load_yaml(self._block_list_path)
-        self._white_list = load_yaml(self._white_list_path)
+        if block_list_path:
+            self._block_list = load_yaml(self._block_list_path)
+        else:
+            self._block_list = []
+            
+        self._white_list_path = white_list_path    
+        if white_list_path:
+            self._white_list = load_yaml(self._white_list_path)
+        else:
+            self._white_list = []
+            
         self._filtering_rule = filtering_rule
 
         try:
