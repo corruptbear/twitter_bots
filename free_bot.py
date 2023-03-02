@@ -23,6 +23,7 @@ from selenium_bot import SeleniumTwitterBot, save_yaml, load_yaml
 from rule_parser import rule_eval
 from report import ReportHandler
 
+import snscrape.modules.twitter as sntwitter
 from revChatGPT.V1 import Chatbot
 
 
@@ -485,6 +486,7 @@ class TwitterBot:
         # https://api.twitter.com/graphql/ViKvXirbgcKs6SfF5wZ30A/ would not work at all
         "retweeters_url": "https://twitter.com/i/api/graphql/ViKvXirbgcKs6SfF5wZ30A/Retweeters",
         "followers_url": "https://twitter.com/i/api/graphql/utPIvA97eaEvxfra_PQz_A/Followers",
+        "following_url": "https://twitter.com/i/api/graphql/AmvGuDw_fxEbJtEXie4OkA/Following",
     }
 
     jot_form_success = {
@@ -531,6 +533,40 @@ class TwitterBot:
         "ext": "mediaStats,highlightedLabel,hasNftAvatar,voiceInfo,birdwatchPivot,enrichments,superFollowMetadata,unmentionInfo,editControl,collab_control,vibe",
     }
 
+    following_followers_form = {
+        "variables": {
+            "userId": None,
+            "count": 100,
+            "includePromotedContent": False,
+            "withSuperFollowsUserFields": True,
+            "withDownvotePerspective": False,
+            "withReactionsMetadata": False,
+            "withReactionsPerspective": False,
+            "withSuperFollowsTweetFields": True,
+        },
+        "features": {
+            "responsive_web_twitter_blue_verified_badge_is_enabled": True,
+            "responsive_web_graphql_exclude_directive_enabled": False,
+            "verified_phone_label_enabled": False,
+            "responsive_web_graphql_timeline_navigation_enabled": True,
+            "responsive_web_graphql_skip_user_profile_image_extensions_enabled": False,
+            "tweetypie_unmention_optimization_enabled": True,
+            "vibe_api_enabled": True,
+            "responsive_web_edit_tweet_api_enabled": True,
+            "graphql_is_translatable_rweb_tweet_is_translatable_enabled": True,
+            "view_counts_everywhere_api_enabled": True,
+            "longform_notetweets_consumption_enabled": True,
+            "tweet_awards_web_tipping_enabled": False,
+            "freedom_of_speech_not_reach_fetch_enabled": False,
+            "standardized_nudges_misinfo": True,
+            "tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled": False,
+            "interactive_text_enabled": True,
+            "responsive_web_text_conversations_enabled": False,
+            "longform_notetweets_richtext_consumption_enabled": False,
+            "responsive_web_enhance_cards_enabled": False,
+        },
+    }
+
     def __init__(self, cookie_path=None, config_path=None, white_list_path=None, block_list_path=None, filtering_rule=None):
         self._headers = {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:110.0) Gecko/20100101 Firefox/110.0",
@@ -560,19 +596,19 @@ class TwitterBot:
         self._cookie_path = cookie_path
         self._config_path = config_path
         self._config_dict = load_yaml(config_path)
-       
+
         self._block_list_path = block_list_path
         if block_list_path:
             self._block_list = load_yaml(self._block_list_path)
         else:
             self._block_list = []
-            
-        self._white_list_path = white_list_path    
+
+        self._white_list_path = white_list_path
         if white_list_path:
             self._white_list = load_yaml(self._white_list_path)
         else:
             self._white_list = []
-            
+
         self._filtering_rule = filtering_rule
 
         try:
@@ -691,8 +727,6 @@ class TwitterBot:
             self.reporter.report_spam(screen_name, option_name, user_id=user_id, context_msg=context_msg)
 
     def report_propaganda_hashtag(self, hashtag, context_msg=None):
-        import snscrape.modules.twitter as sntwitter
-
         x = sntwitter.TwitterHashtagScraper(hashtag)
 
         # report rate too high will make you black_listed
@@ -890,7 +924,7 @@ class TwitterBot:
                         user["statuses_count"],
                         name=user["name"],
                     )
-    
+
                     yield p
 
                 else:
@@ -928,11 +962,44 @@ class TwitterBot:
             bottom_cursor = self._cursor_from_entries(entries)
             form["variables"]["cursor"] = bottom_cursor
 
+    def id_from_screen_name(self, screen_name):
+        x = sntwitter.TwitterUserScraper(screen_name)
+        userdata = x._get_entity()
+        return userdata.id
+
+    def get_following(self, user_id):
+        """
+        Gets the list of following.
+        Returns a list of TwitterUserProfile.
+        """
+        try:
+            int(user_id)
+        except:
+            user_id = self.id_from_screen_name(user_id)
+
+        display_msg("get following")
+
+        headers = self._json_headers()
+
+        url = TwitterBot.urls["following_url"]
+
+        form = copy.deepcopy(TwitterBot.following_followers_form)
+
+        # set userID in form
+        form["variables"]["userId"] = str(user_id)
+
+        for entries in self._navigate_graphql_entries(url, headers, form):
+            yield from self._users_from_entries(entries)
+
     def get_followers(self, user_id):
         """
         Gets the list of followers.
         Returns a list of TwitterUserProfile.
         """
+        try:
+            int(user_id)
+        except:
+            user_id = self.id_from_screen_name(user_id)
 
         display_msg("get followers")
 
@@ -940,39 +1007,7 @@ class TwitterBot:
 
         url = TwitterBot.urls["followers_url"]
 
-        form = {
-            "variables": {
-                "userId": None,
-                "count": 100,
-                "includePromotedContent": False,
-                "withSuperFollowsUserFields": True,
-                "withDownvotePerspective": False,
-                "withReactionsMetadata": False,
-                "withReactionsPerspective": False,
-                "withSuperFollowsTweetFields": True,
-            },
-            "features": {
-                "responsive_web_twitter_blue_verified_badge_is_enabled": True,
-                "responsive_web_graphql_exclude_directive_enabled": False,
-                "verified_phone_label_enabled": False,
-                "responsive_web_graphql_timeline_navigation_enabled": True,
-                "responsive_web_graphql_skip_user_profile_image_extensions_enabled": False,
-                "tweetypie_unmention_optimization_enabled": True,
-                "vibe_api_enabled": True,
-                "responsive_web_edit_tweet_api_enabled": True,
-                "graphql_is_translatable_rweb_tweet_is_translatable_enabled": True,
-                "view_counts_everywhere_api_enabled": True,
-                "longform_notetweets_consumption_enabled": True,
-                "tweet_awards_web_tipping_enabled": False,
-                "freedom_of_speech_not_reach_fetch_enabled": False,
-                "standardized_nudges_misinfo": True,
-                "tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled": False,
-                "interactive_text_enabled": True,
-                "responsive_web_text_conversations_enabled": False,
-                "longform_notetweets_richtext_consumption_enabled": False,
-                "responsive_web_enhance_cards_enabled": False,
-            },
-        }
+        form = copy.deepcopy(TwitterBot.following_followers_form)
 
         # set userID in form
         form["variables"]["userId"] = str(user_id)
@@ -993,38 +1028,9 @@ class TwitterBot:
 
         url = TwitterBot.urls["retweeters_url"]
 
-        form = {
-            "variables": {
-                "tweetId": 0,
-                "count": 100,
-                "includePromotedContent": True,
-                "withSuperFollowsUserFields": True,
-                "withDownvotePerspective": False,
-                "withReactionsMetadata": False,
-                "withReactionsPerspective": False,
-                "withSuperFollowsTweetFields": True,
-            },
-            "features": {
-                "responsive_web_twitter_blue_verified_badge_is_enabled": True,
-                "responsive_web_graphql_exclude_directive_enabled": False,
-                "verified_phone_label_enabled": False,
-                "responsive_web_graphql_timeline_navigation_enabled": True,
-                "responsive_web_graphql_skip_user_profile_image_extensions_enabled": False,
-                "tweetypie_unmention_optimization_enabled": True,
-                "vibe_api_enabled": True,
-                "responsive_web_edit_tweet_api_enabled": True,
-                "graphql_is_translatable_rweb_tweet_is_translatable_enabled": True,
-                "view_counts_everywhere_api_enabled": True,
-                "longform_notetweets_consumption_enabled": True,
-                "tweet_awards_web_tipping_enabled": False,
-                "freedom_of_speech_not_reach_fetch_enabled": False,
-                "standardized_nudges_misinfo": True,
-                "tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled": False,
-                "interactive_text_enabled": True,
-                "responsive_web_text_conversations_enabled": False,
-                "responsive_web_enhance_cards_enabled": False,
-            },
-        }
+        form = copy.deepcopy(TwitterBot.following_followers_form)
+        del form["variables"]["userId"]
+        # del form["features"]["longform_notetweets_richtext_consumption_enabled"]
 
         # set tweetId in form
         form["variables"]["tweetId"] = tweet_url.split("/")[-1]
@@ -1067,15 +1073,15 @@ if __name__ == "__main__":
     # bot.get_followers(44196397)
     for x in bot.get_retweeters("https://twitter.com/Anaimiya/status/1628281803407790080"):
         count += 1
-        if count % 100 == 0:
-            print(count)
+        # if count % 100 == 0:
+        #    print(count)
         # match = re.search(r"[a-zA-Z]{6,8}[0-9]{8}", x.screen_name)
-        if "us" in x.name:
+        if "us" in x.name or True:
             print(
                 f"{x.screen_name:<20} following: {x.following_count:>9}, follower: {x.followers_count:>9}, tweet_per_day: {x.tweet_count / (x.days_since_registration + 0.05):>8.4f}"
             )
 
-        if count == 500:
+        if count == 1000:
             break
 
         # if match:
