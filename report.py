@@ -4,6 +4,8 @@ import re
 import json
 import secrets
 
+from time import sleep
+
 import snscrape.modules.twitter as sntwitter
 
 
@@ -103,7 +105,7 @@ class ReportHandler:
             }
         ]
     }
-
+    
     diagnosis_payload = {
         "subtask_inputs": [
             {
@@ -140,8 +142,13 @@ class ReportHandler:
 
     options = {
         "GovBot": {
-            "choices": ["EveryoneOnTwitterOption", "SpammedOption", "UsingMultipleAccountsOption"],
+            "options": [["EveryoneOnTwitterOption"], ["SpammedOption"], ["UsingMultipleAccountsOption"]],
             "context_text": "this account is part of a coordinated campaingn from chinese government",
+        },
+        
+        "SexualHarassment":{
+            "options": [["TargetingMeOption"], ["HarassedOrViolenceOption"], ["InsultingOption"], ["IdentityGenderOption","IdentitySexualOrientation"]],
+            "context_text": "this person has been harrasing me for months. most of its previous accounts are suspended, this is the latest one."
         }
     }
 
@@ -203,12 +210,12 @@ class ReportHandler:
             [s["id"] for s in response["subtasks"][0]["choice_selection"]["choices"]],
         )
 
-    def handle_single_choice(self, choice):
+    def handle_choices(self, choices):
         # make choices
         single_choice_payload = ReportHandler.single_choice_payload
 
-        print("choice:", choice)
-        single_choice_payload["subtask_inputs"][0]["choice_selection"]["selected_choices"] = [choice]
+        print("choices:", choices)
+        single_choice_payload["subtask_inputs"][0]["choice_selection"]["selected_choices"] = choices
         single_choice_payload["flow_token"] = self.flow_token
         r = self._session.post(
             "https://api.twitter.com/1.1/report/flow.json",
@@ -277,20 +284,18 @@ class ReportHandler:
             print("successfully completed!")
         else:
             print(r.status_code)
-
-    def report_spam(self, screen_name, option_name, user_id=None, context_msg=None):
-        choices = ReportHandler.options[option_name]["choices"]
-        # detail could be one of: ['SharingLinksOption', 'PostingSpamOption', 'LikeRetweetReplySpamOption', 'FakeEngagementOption', 'UsingMultipleAccountsOption', 'InflatingFollowshipOption', 'SomethingElseOption']
-        target, how, detail = choices[0], choices[1], choices[2]
-
-        # set the initial flow token
+            
+    def report_user(self,screen_name, option_name, user_id=None, context_msg=None):
+        print("report abusive user")
+        options = ReportHandler.options[option_name]["options"]
+        
         self.get_flow_token(screen_name, user_id)
 
         self.handle_intro()
+        
+        for choice in options:
+            self.handle_choices(choice)
 
-        self.handle_single_choice(target)
-        self.handle_single_choice(how)
-        self.handle_single_choice(detail)
         self.handle_diagnosis()
 
         if context_msg is not None:
@@ -301,3 +306,30 @@ class ReportHandler:
 
         self.handle_review_and_submit(context_text)
         self.handle_completion()
+        
+    def report_propaganda_hashtag(self, hashtag, context_msg=None):
+        x = sntwitter.TwitterHashtagScraper(hashtag)
+        
+        # report rate too high will make you black_listed
+        count = 0
+        
+        # only report once
+        abuser_list = {}
+
+        for item in x.get_items():
+            content = json.loads(item.json())
+            screen_name = content["user"]["username"]
+            
+            #skip user already reported
+            if screen_name in abuser_list:
+                continue
+
+            user_id = content["user"]["id"]
+            abuser_list[screen_name] = user_id
+            print(count, screen_name, user_id)
+            count += 1
+            
+            self.report_user(screen_name, "GovBot", user_id=user_id, context_msg=context_msg)
+         
+            # minimum sleep time to avoid triggering rate limit related errors
+            sleep(8)

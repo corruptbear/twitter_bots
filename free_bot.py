@@ -1,19 +1,20 @@
 #!/usr/bin/env python3.9
+import os
+import sys
+import traceback
 
 import requests
-import pickle
-import sys
-from time import sleep
 from urllib.parse import urlencode, quote
+
 import dataclasses
+
 from datetime import datetime, timezone
 from dateutil import tz
 
-import traceback
-import os
 import yaml
-
 import json
+
+import pickle
 import random
 import re
 import secrets
@@ -28,7 +29,6 @@ from revChatGPT.V1 import Chatbot
 
 from collections import abc
 import keyword
-
 
 class TwitterJSON:
     def __new__(cls, arg): 
@@ -58,8 +58,8 @@ class TwitterJSON:
             return None
             
     #still supports subscription, just in case        
-    #def __getitem__(self, name):
-    #        return self.__getattr__(name)
+    def __getitem__(self, name):
+        return self.__getattr__(name)
 
     def __dir__(self):
         return self.__data.keys()
@@ -81,8 +81,6 @@ class TwitterJSON:
               
     def values(self):
         return (TwitterJSON(x) for x in self.__data.values())
-        
-        
         
 
 def chatgpt_moderation(sentence):
@@ -543,7 +541,6 @@ class TwitterBot:
         "last_seen_cursor_url": "https://api.twitter.com/2/notifications/all/last_seen_cursor.json",
         "block_url": "https://api.twitter.com/1.1/blocks/create.json",
         "unblock_url": "https://api.twitter.com/1.1/blocks/destroy.json",
-        # https://api.twitter.com/graphql/ViKvXirbgcKs6SfF5wZ30A/ would not work at all
         "retweeters_url": "https://twitter.com/i/api/graphql/ViKvXirbgcKs6SfF5wZ30A/Retweeters",
         "followers_url": "https://twitter.com/i/api/graphql/utPIvA97eaEvxfra_PQz_A/Followers",
         "following_url": "https://twitter.com/i/api/graphql/AmvGuDw_fxEbJtEXie4OkA/Following",
@@ -588,7 +585,6 @@ class TwitterBot:
         "send_error_codes": "true",
         "simple_quoted_tweet": "true",
         "count": "40",
-        # timelineid:    AAAAABZfed0AAAABYinMQFMKJic AAAAABZfed0AAAABYinMQFgwhLg
         "cursor": "DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFMKJicACwACAAAAC0FZWlhveW1SNnNFCAADjyMIvwAA",
         "ext": "mediaStats,highlightedLabel,hasNftAvatar,voiceInfo,birdwatchPivot,enrichments,superFollowMetadata,unmentionInfo,editControl,collab_control,vibe",
     }
@@ -672,7 +668,7 @@ class TwitterBot:
         self._filtering_rule = filtering_rule
 
         try:
-            self.load_cookies()
+            self._load_cookies()
         except:
             # if the cookie does not exist
             traceback.print_exc()
@@ -685,7 +681,7 @@ class TwitterBot:
 
         self.reporter = ReportHandler(self._headers, self._session)
 
-    def set_selenium_cookies(self, cookies):
+    def _set_selenium_cookies(self, cookies):
         display_msg("setting cookies from selenium")
         for x in cookies:
             print(x)
@@ -703,20 +699,20 @@ class TwitterBot:
         # make the header token consistent with the cookies
         self._headers["x-csrf-token"] = self._session.cookies.get("ct0")
 
-    def load_cookies(self):
+    def _load_cookies(self):
         display_msg("loading cookies")
         cookies = pickle.load(open(self._cookie_path, "rb"))
-        self.set_selenium_cookies(cookies)
+        self._set_selenium_cookies(cookies)
 
     def refresh_cookies(self):
         """
-        Try to get the cookies through requests first.
-        If it does not work, use Selenium to get the cookies
+        Try to get the cookies through requests only TwitterLoginBot first.
+        If it does not work, use SeleniumTwitterBot to get the cookies
         """
         try:
             display_msg("trying using requests to get cookies")
             b = TwitterLoginBot(cookie_path=self._cookie_path, config_dict=self._config_dict)
-            self.load_cookies()
+            self._load_cookies()
         except:
             display_msg("trying using selenium to get cookies")
             b = SeleniumTwitterBot()
@@ -724,7 +720,7 @@ class TwitterBot:
             b.twitter_login()
             b.save_cookies()
 
-            self.set_selenium_cookies(b.driver.get_cookies())
+            self._set_selenium_cookies(b.driver.get_cookies())
 
     def get_badge_count(self):
         display_msg("get badge count")
@@ -781,37 +777,6 @@ class TwitterBot:
         display_msg("unblock")
         print(r.status_code, r.text)
 
-    def report_profile(self, screen_name, option_name, user_id=None, context_msg=None):
-        if option_name == "GovBot":
-            # for reporting propaganda bots
-            self.reporter.report_spam(screen_name, option_name, user_id=user_id, context_msg=context_msg)
-
-    def report_propaganda_hashtag(self, hashtag, context_msg=None):
-        x = sntwitter.TwitterHashtagScraper(hashtag)
-
-        # report rate too high will make you black_listed
-        count = 0
-
-        # only report once
-        abuser_list = {}
-
-        for item in x.get_items():
-            content = json.loads(item.json())
-            screen_name = content["user"]["username"]
-
-            if screen_name in abuser_list:
-                continue
-
-            user_id = content["user"]["id"]
-            abuser_list[screen_name] = user_id
-            print(count, screen_name, user_id)
-            bot.report_profile(screen_name, "GovBot", user_id=user_id, context_msg=context_msg)
-
-            count += 1
-
-            # minimum sleep time to avoid triggering rate limit related errors
-            sleep(8)
-
     def handle_users(self, users):
         """
         Examine users coming from the notifications one by one.
@@ -829,7 +794,7 @@ class TwitterBot:
             conclusion_str = "bad" if is_bad else "good"
 
             if is_bad:
-                # TODO: actually block the bad user
+                self.block_user(user_id)
 
                 self._block_list[user.user_id] = user.screen_name
                 save_yaml(self._block_list, self._block_list_path, "w")
@@ -866,7 +831,6 @@ class TwitterBot:
 
         if result.globalObjects.users:
             users = result.globalObjects.users   
-            print(3 in users)
             #annoying: cannot use variable in dot attribute getter      
             for user in users.values():
                 p = TwitterUserProfile(
@@ -922,13 +886,12 @@ class TwitterBot:
 
         # get cursor entries
         cursor_entries = [x for x in entries if x.content.operation]
-
         # entries that are not cursors
         non_cursor_entries = [x for x in entries if not x.content.operation]
 
-        # includes like, retweet
+        # includes like, retweet, other misc
         non_cursor_notification_entries = [x for x in non_cursor_entries if x.content.item.content.notification]
-        # includes reply
+        # includes reply, quoted retweet
         non_cursor_tweet_entries = [x for x in non_cursor_entries if x.content.item.content.tweet]
 
         display_msg("timeline: non_cursor_notification")
@@ -1155,17 +1118,20 @@ if __name__ == "__main__":
         if count == 10:
             break
 
-        # if match:
-        #    print(x.screen_name, x.name, x.tweet_count / x.days_since_registration)
-
-    # bot.report_profile("KarenLoomis17", "GovBot", user_id = 1605874400816816128)
-
-    """
-    bot.report_propaganda_hashtag(
+    x = sntwitter.TwitterUserScraper("rapist86009197")
+    count = 0
+    for item in x.get_items():
+        count+=1
+        content = json.loads(item.json())
+        print(chatgpt_moderation(content['rawContent']))
+    print(count)
+    #bot.reporter.report_user("KarenLoomis17", "GovBot", user_id = 1605874400816816128)
+    #bot.reporter.report_user("rapist86009197","SexualHarassment", user_id = 1631332912120438796,  context_msg = "this person has been harrasing me for months. most of its previous accounts are suspended, this is the latest one. its user name wishes me death")
+ 
+    bot.reporter.report_propaganda_hashtag(
         "ThisispureslanderthatChinahasestablishedasecretpolicedepartmentinEngland",
         context_msg="this account is part of a coordinated campaingn from chinese government, it uses hashtags that are exclusively used by chinese state sponsored bots",
     )
-    """
 
     # bot.block_user('44196397') #https://twitter.com/elonmusk (for test)
     # print(TwitterBot.notification_all_form["cursor"], bot.latest_sortindex)
