@@ -26,6 +26,46 @@ from report import ReportHandler
 import snscrape.modules.twitter as sntwitter
 from revChatGPT.V1 import Chatbot
 
+from collections import abc
+import keyword
+
+sys.setrecursionlimit(5000)
+
+class TwitterJSON:
+    """A read-only façade for navigating a JSON-like object
+       using attribute notation
+    """
+
+    def __new__(cls, arg): 
+        if isinstance(arg, abc.Mapping):
+            return super().__new__(cls) 
+        elif isinstance(arg, abc.MutableSequence):
+            return [cls(item) for item in arg]
+        else:
+            return arg
+
+    def __init__(self, mapping):
+        self.__data = {}
+        for key, value in mapping.items():
+            if keyword.iskeyword(key):
+                key += '_'
+            self.__data[key] = value
+
+    def __getattr__(self, name):
+        try:
+            if '__typename' in name:
+                name = '__typename'
+            return getattr(self.__data, name)
+        except AttributeError:
+            if name in self.__data:
+                return TwitterJSON(self.__data[name])
+            return None
+
+    def __dir__(self):
+        return self.__data.keys()
+        
+    def __repr__(self):
+        return str(self.__data)
 
 def chatgpt_moderation(sentence):
     # https://chat.openai.com/api/auth/session
@@ -98,6 +138,8 @@ class TwitterUserProfile:
     following_count: int = dataclasses.field(default=None)
     followers_count: int = dataclasses.field(default=None)
     tweet_count: int = dataclasses.field(default=None)
+    media_count: int = dataclasses.field(default=None)
+    favourites_count: int = dataclasses.field(default=None)
     days_since_registration: int = dataclasses.field(init=False, default=None)
     name: str = dataclasses.field(default=None, metadata={"keyword_only": True})
 
@@ -793,6 +835,7 @@ class TwitterBot:
         print(f"status_code: {r.status_code}, length: {r.headers['content-length']}")
 
         result = r.json()
+        print(result)
 
         print("result keys:", result.keys())
 
@@ -899,7 +942,7 @@ class TwitterBot:
                 self.latest_sortindex = x["sortIndex"]
 
                 self.update_local_cursor(cursor["value"])
-                # self.update_remote_latest_cursor()  # will cause the badge to disappear
+                #self.update_remote_latest_cursor()  # will cause the badge to disappear
 
     def _cursor_from_entries(self, entries):
         for e in entries[-2:]:
@@ -907,6 +950,14 @@ class TwitterBot:
             if content["entryType"] == "TimelineTimelineCursor":
                 if content["cursorType"] == "Bottom":
                     return content["value"]
+                    
+    def _d_cursor_from_entries(self,entries):
+        for e in entries[-2:]:
+            content = e.content
+            if content.entryType == "TimelineTimelineCursor":
+                if content.cursorType == "Bottom":
+                    return content.value
+        
 
     def _users_from_entries(self, entries):
         for e in entries:
@@ -918,10 +969,12 @@ class TwitterBot:
                     p = TwitterUserProfile(
                         int(e["entryId"].split("-")[1]),
                         user["screen_name"],
-                        user["created_at"],
-                        user["friends_count"],
-                        user["followers_count"],
-                        user["statuses_count"],
+                        created_at = user["created_at"],
+                        following_count = user["friends_count"],
+                        followers_count = user["followers_count"],
+                        tweet_count = user["statuses_count"],
+                        media_count = user["media_count"],
+                        favourites_count = user["favourites_count"],
                         name=user["name"],
                     )
 
@@ -930,6 +983,35 @@ class TwitterBot:
                 else:
                     # otherwise the typename is UserUnavailable
                     print("cannot get user data", e["entryId"], content["itemContent"]["user_results"]["result"])
+                    
+    def _d_users_from_entries(self, entries):
+        for e in entries:
+            content = e.content
+            if content.entryType == "TimelineTimelineItem":
+                r=content.itemContent.user_results.result
+      
+                if content.itemContent.user_results.result._TwitterBot__typename == "User":
+                    
+                    user = content.itemContent.user_results.result.legacy
+
+                    p = TwitterUserProfile(
+                        int(e.entryId.split("-")[1]),
+                        user.screen_name,
+                        created_at = user.created_at,
+                        following_count = user.friends_count,
+                        followers_count = user.followers_count,
+                        tweet_count = user.statuses_count,
+                        media_count = user.media_count,
+                        favourites_count = user.favourites_count,
+                        name=user.name,
+                    )
+
+                    yield p
+
+                else:
+                    # otherwise the typename is UserUnavailable
+                    print("cannot get user data", e.entryId)
+        
 
     def _json_headers(self):
         headers = copy.deepcopy(self._headers)
@@ -944,22 +1026,23 @@ class TwitterBot:
             r = self._session.get(url, headers=headers, params=encoded_params)
 
             response = r.json()
-            data = response["data"]
-
-            if "retweeters_timeline" in data:
-                instructions = data["retweeters_timeline"]["timeline"]["instructions"]
+            response = TwitterJSON(response)
+            
+            data = response.data
+            
+            if  data.retweeters_timeline:
+                instructions = data.retweeters_timeline.timeline.instructions
             else:
-                instructions = data["user"]["result"]["timeline"]["timeline"]["instructions"]
-
-            entries = [x for x in instructions if x["type"] == "TimelineAddEntries"][0]["entries"]
-
-            # not getting entries anymore
-            if len(entries) <= 2:
+                instructions = data.user.result.timeline.timeline.instructions         
+            
+            entries = [x for x in instructions if x.type == "TimelineAddEntries"][0].entries
+            
+            if len(entries)<=2:
                 break
-
+                
             yield entries
-
-            bottom_cursor = self._cursor_from_entries(entries)
+            
+            bottom_cursor = self._d_cursor_from_entries(entries)
             form["variables"]["cursor"] = bottom_cursor
 
     def id_from_screen_name(self, screen_name):
@@ -989,7 +1072,7 @@ class TwitterBot:
         form["variables"]["userId"] = str(user_id)
 
         for entries in self._navigate_graphql_entries(url, headers, form):
-            yield from self._users_from_entries(entries)
+            yield from self._d_users_from_entries(entries)
 
     def get_followers(self, user_id):
         """
@@ -1059,7 +1142,7 @@ if __name__ == "__main__":
         filtering_rule=filtering_rule,
     )
 
-    bot.update_local_cursor("DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFgwhLgACwACAAAAC0FZWlliaFJQdHpNCAADjyMIvwAA")
+    #bot.update_local_cursor("DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFgwhLgACwACAAAAC0FZWlliaFJQdHpNCAADjyMIvwAA")
     try:
         # use a small query to test the validity of cookies
         bot.get_badge_count()
@@ -1071,17 +1154,17 @@ if __name__ == "__main__":
     count = 0
     # bot.get_retweeters("https://twitter.com/Anaimiya/status/1628281803407790080")
     # bot.get_followers(44196397)
-    for x in bot.get_retweeters("https://twitter.com/Anaimiya/status/1628281803407790080"):
+    for x in bot.get_following("jakobsonradical"):
         count += 1
         # if count % 100 == 0:
         #    print(count)
         # match = re.search(r"[a-zA-Z]{6,8}[0-9]{8}", x.screen_name)
         if "us" in x.name or True:
             print(
-                f"{x.screen_name:<20} following: {x.following_count:>9}, follower: {x.followers_count:>9}, tweet_per_day: {x.tweet_count / (x.days_since_registration + 0.05):>8.4f}"
+                f"{x.screen_name:<16} following: {x.following_count:>9} follower: {x.followers_count:>9} media: {x.media_count:>8} tweet_per_day: {x.tweet_count / (x.days_since_registration + 0.05):>8.4f}"
             )
 
-        if count == 1000:
+        if count == 10:
             break
 
         # if match:
