@@ -29,13 +29,8 @@ from revChatGPT.V1 import Chatbot
 from collections import abc
 import keyword
 
-sys.setrecursionlimit(5000)
 
 class TwitterJSON:
-    """A read-only façade for navigating a JSON-like object
-       using attribute notation
-    """
-
     def __new__(cls, arg): 
         if isinstance(arg, abc.Mapping):
             return super().__new__(cls) 
@@ -53,6 +48,7 @@ class TwitterJSON:
 
     def __getattr__(self, name):
         try:
+            #convert the mangled __typename back to original value
             if '__typename' in name:
                 name = '__typename'
             return getattr(self.__data, name)
@@ -60,12 +56,34 @@ class TwitterJSON:
             if name in self.__data:
                 return TwitterJSON(self.__data[name])
             return None
+            
+    #still supports subscription, just in case        
+    #def __getitem__(self, name):
+    #        return self.__getattr__(name)
 
     def __dir__(self):
         return self.__data.keys()
-        
+           
     def __repr__(self):
         return str(self.__data)
+        
+    def __len__(self):
+        return len(self.__data)
+        
+    def __contains__(self,key):
+        """
+        called when `in` operation is used.
+        """
+        return key in self.__data
+        
+    def __iter__(self):
+        return (key for key in self.__data)
+              
+    def values(self):
+        return (TwitterJSON(x) for x in self.__data.values())
+        
+        
+        
 
 def chatgpt_moderation(sentence):
     # https://chat.openai.com/api/auth/session
@@ -835,91 +853,94 @@ class TwitterBot:
         print(f"status_code: {r.status_code}, length: {r.headers['content-length']}")
 
         result = r.json()
-        print(result)
+        result = TwitterJSON(result)
 
         print("result keys:", result.keys())
 
         convo = set()
         tweets, notifications = [], []
 
-        print("globalObjects keys:", result["globalObjects"].keys(), "\n")
+        print("globalObjects keys:", result.globalObjects.keys(), "\n")
 
         logged_users = {}
 
-        if "users" in result["globalObjects"]:
-            users = result["globalObjects"]["users"]
-            for x in users:
-                user = users[x]
+        if result.globalObjects.users:
+            users = result.globalObjects.users   
+            print(3 in users)
+            #annoying: cannot use variable in dot attribute getter      
+            for user in users.values():
                 p = TwitterUserProfile(
-                    user["id"],
-                    user["screen_name"],
-                    user["created_at"],
-                    user["friends_count"],
-                    user["followers_count"],
-                    user["statuses_count"],
+                    user.id,
+                    user.screen_name,
+                    created_at = user.created_at,
+                    following_count = user.friends_count,
+                    followers_count = user.followers_count,
+                    tweet_count = user.statuses_count,
+                    media_count = user.media_count,
+                    favourites_count = user.favourites_count,
+                    name=user.name,
                 )
                 print(dataclasses.asdict(p))
                 logged_users[p.user_id] = p
+                
+                #logged_users[user.id] = user #need to modify oracle
 
         display_msg("globalObjects['tweets]")
         id_indexed_tweets = {}
         # all related tweets (being liked; being replied to; being quoted; other people's interaction with me)
-        if "tweets" in result["globalObjects"]:
-            tweets = result["globalObjects"]["tweets"]
-            for x in tweets:
-                tweet = tweets[x]
-                id_indexed_tweets[int(tweet["id"])] = tweet
-                print("convo id:", tweet["conversation_id"])
-                convo.add(tweet["conversation_id"])
-                print(tweet["user_id"], tweet["created_at"], tweet["full_text"])
+        if result.globalObjects.tweets:
+            tweets = result.globalObjects.tweets
+            for tweet in tweets.values():
+                id_indexed_tweets[int(tweet.id)] = tweet
+                print("convo id:", tweet.conversation_id)
+                convo.add(tweet.conversation_id)
+                print(tweet.user_id, tweet.created_at, tweet.full_text)
 
         interacting_users = {}
 
         display_msg("globalObjects['notifications']")
-        if "notifications" in result["globalObjects"]:
-            notifications = result["globalObjects"]["notifications"]
-            for x in notifications:
-                notification = notifications[x]
-                # print(x, notification["message"]["text"])
-
-                for e in notification["message"]["entities"]:
-                    entry_user_id = int(e["ref"]["user"]["id"])
+        if result.globalObjects.notifications:
+            notifications = result.globalObjects.notifications
+            for notification in notifications.values():
+                #print(notification.message.text)
+                for e in notification.message.entities:
+                    entry_user_id = int(e.ref.user.id)
                     # add the users appearing in notifications (do not include replies)
                     interacting_users[entry_user_id] = logged_users[entry_user_id]
 
         display_msg("timeline")
-        print("TIMELINE ID", result["timeline"]["id"])
-        instructions = result["timeline"]["instructions"]  # instructions is a list
+        print("TIMELINE ID", result.timeline.id)
+        instructions = result.timeline.instructions  # instructions is a list
 
         # print all keys
         print("instruction keys:", [x.keys() for x in instructions])
 
         # get entries
         for x in instructions:
-            if "addEntries" in x:
-                entries = x["addEntries"]["entries"]  # intries is a list
+            if x.addEntries:
+                entries = x.addEntries.entries  # intries is a list
 
         # get cursor entries
-        cursor_entries = [x for x in entries if "operation" in x["content"]]
+        cursor_entries = [x for x in entries if x.content.operation]
 
         # entries that are not cursors
-        non_cursor_entries = [x for x in entries if "operation" not in x["content"]]
+        non_cursor_entries = [x for x in entries if not x.content.operation]
 
         # includes like, retweet
-        non_cursor_notification_entries = [x for x in non_cursor_entries if "notification" in x["content"]["item"]["content"]]
+        non_cursor_notification_entries = [x for x in non_cursor_entries if x.content.item.content.notification]
         # includes reply
-        non_cursor_tweet_entries = [x for x in non_cursor_entries if "tweet" in x["content"]["item"]["content"]]
+        non_cursor_tweet_entries = [x for x in non_cursor_entries if x.content.item.content.tweet]
 
         display_msg("timeline: non_cursor_notification")
         # users_liked_your_tweet/user_liked_multiple_tweets/user_liked_tweets_about_you/generic_login_notification/users_retweeted_your_tweet
         for x in non_cursor_notification_entries:
-            print(x["sortIndex"], x["content"]["item"]["clientEventInfo"]["element"])
+            print(x.sortIndex, x.content.item.clientEventInfo.element)
 
         display_msg("timeline: non_cursor_tweets")
         # user_replied_to_your_tweet/user_quoted_your_tweet
         for x in non_cursor_tweet_entries:
-            print(x["sortIndex"], x["content"]["item"]["clientEventInfo"]["element"])
-            entry_user_id = id_indexed_tweets[int(x["content"]["item"]["content"]["tweet"]["id"])]["user_id"]
+            print(x.sortIndex, x.content.item.clientEventInfo.element)
+            entry_user_id = id_indexed_tweets[int(x.content.item.content.tweet.id)].user_id
             # add the users replying to me
             interacting_users[entry_user_id] = logged_users[entry_user_id]
 
@@ -936,55 +957,22 @@ class TwitterBot:
 
         display_msg("cursors")
         for x in cursor_entries:
-            cursor = x["content"]["operation"]["cursor"]
-            print(x["sortIndex"], cursor)
-            if cursor["cursorType"] == "Top":
-                self.latest_sortindex = x["sortIndex"]
+            cursor = x.content.operation.cursor
+            print(x.sortIndex, cursor)
+            if cursor.cursorType == "Top":
+                self.latest_sortindex = x.sortIndex
 
-                self.update_local_cursor(cursor["value"])
+                self.update_local_cursor(cursor.value)
                 #self.update_remote_latest_cursor()  # will cause the badge to disappear
-
-    def _cursor_from_entries(self, entries):
-        for e in entries[-2:]:
-            content = e["content"]
-            if content["entryType"] == "TimelineTimelineCursor":
-                if content["cursorType"] == "Bottom":
-                    return content["value"]
                     
-    def _d_cursor_from_entries(self,entries):
+    def _cursor_from_entries(self,entries):
         for e in entries[-2:]:
             content = e.content
             if content.entryType == "TimelineTimelineCursor":
                 if content.cursorType == "Bottom":
                     return content.value
-        
-
-    def _users_from_entries(self, entries):
-        for e in entries:
-            content = e["content"]
-            if content["entryType"] == "TimelineTimelineItem":
-                if content["itemContent"]["user_results"]["result"]["__typename"] == "User":
-                    user = content["itemContent"]["user_results"]["result"]["legacy"]
-
-                    p = TwitterUserProfile(
-                        int(e["entryId"].split("-")[1]),
-                        user["screen_name"],
-                        created_at = user["created_at"],
-                        following_count = user["friends_count"],
-                        followers_count = user["followers_count"],
-                        tweet_count = user["statuses_count"],
-                        media_count = user["media_count"],
-                        favourites_count = user["favourites_count"],
-                        name=user["name"],
-                    )
-
-                    yield p
-
-                else:
-                    # otherwise the typename is UserUnavailable
-                    print("cannot get user data", e["entryId"], content["itemContent"]["user_results"]["result"])
                     
-    def _d_users_from_entries(self, entries):
+    def _users_from_entries(self, entries):
         for e in entries:
             content = e.content
             if content.entryType == "TimelineTimelineItem":
@@ -1072,7 +1060,7 @@ class TwitterBot:
         form["variables"]["userId"] = str(user_id)
 
         for entries in self._navigate_graphql_entries(url, headers, form):
-            yield from self._d_users_from_entries(entries)
+            yield from self._users_from_entries(entries)
 
     def get_followers(self, user_id):
         """
@@ -1142,7 +1130,7 @@ if __name__ == "__main__":
         filtering_rule=filtering_rule,
     )
 
-    #bot.update_local_cursor("DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFgwhLgACwACAAAAC0FZWlliaFJQdHpNCAADjyMIvwAA")
+    bot.update_local_cursor("DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFgwhLgACwACAAAAC0FZWlliaFJQdHpNCAADjyMIvwAA")
     try:
         # use a small query to test the validity of cookies
         bot.get_badge_count()
@@ -1154,7 +1142,7 @@ if __name__ == "__main__":
     count = 0
     # bot.get_retweeters("https://twitter.com/Anaimiya/status/1628281803407790080")
     # bot.get_followers(44196397)
-    for x in bot.get_following("jakobsonradical"):
+    for x in bot.get_followers(44196397):
         count += 1
         # if count % 100 == 0:
         #    print(count)
