@@ -30,58 +30,6 @@ from revChatGPT.V1 import Chatbot
 from collections import abc
 import keyword
 
-class TwitterJSON:
-    def __new__(cls, arg): 
-        if isinstance(arg, abc.Mapping):
-            return super().__new__(cls) 
-        elif isinstance(arg, abc.MutableSequence):
-            return [cls(item) for item in arg]
-        else:
-            return arg
-
-    def __init__(self, mapping):
-        self.__data = {}
-        for key, value in mapping.items():
-            if keyword.iskeyword(key):
-                key += '_'
-            self.__data[key] = value
-
-    def __getattr__(self, name):
-        try:
-            #convert the mangled __typename back to original value
-            if '__typename' in name:
-                name = '__typename'
-            return getattr(self.__data, name)
-        except AttributeError:
-            if name in self.__data:
-                return TwitterJSON(self.__data[name])
-            return None
-            
-    #still supports subscription, just in case        
-    def __getitem__(self, name):
-        return self.__getattr__(name)
-
-    def __dir__(self):
-        return self.__data.keys()
-           
-    def __repr__(self):
-        return str(self.__data)
-        
-    def __len__(self):
-        return len(self.__data)
-        
-    def __contains__(self,key):
-        """
-        called when `in` operation is used.
-        """
-        return key in self.__data
-        
-    def __iter__(self):
-        return (key for key in self.__data)
-              
-    def values(self):
-        return (TwitterJSON(x) for x in self.__data.values())
-        
 
 def chatgpt_moderation(sentence):
     # https://chat.openai.com/api/auth/session
@@ -146,6 +94,59 @@ def oracle(user, filtering_rule):
     return result
 
 
+class TwitterJSON:
+    def __new__(cls, arg):
+        if isinstance(arg, abc.Mapping):
+            return super().__new__(cls)
+        elif isinstance(arg, abc.MutableSequence):
+            return [cls(item) for item in arg]
+        else:
+            return arg
+
+    def __init__(self, mapping):
+        self.__data = {}
+        for key, value in mapping.items():
+            if keyword.iskeyword(key):
+                key += "_"
+            self.__data[key] = value
+
+    def __getattr__(self, name):
+        try:
+            # convert the mangled __typename back to original value
+            if "__typename" in name:
+                name = "__typename"
+            return getattr(self.__data, name)
+        except AttributeError:
+            if name in self.__data:
+                return TwitterJSON(self.__data[name])
+            return None
+
+    # still supports subscription, just in case
+    def __getitem__(self, name):
+        return self.__getattr__(name)
+
+    def __dir__(self):
+        return self.__data.keys()
+
+    def __repr__(self):
+        return str(self.__data)
+
+    def __len__(self):
+        return len(self.__data)
+
+    def __contains__(self, key):
+        """
+        called when `in` operation is used.
+        """
+        return key in self.__data
+
+    def __iter__(self):
+        return (key for key in self.__data)
+
+    def values(self):
+        return (TwitterJSON(x) for x in self.__data.values())
+
+
 @dataclasses.dataclass
 class TwitterUserProfile:
     user_id: int
@@ -168,96 +169,6 @@ class TwitterUserProfile:
 
 
 class TwitterLoginBot:
-    get_token_payload = {
-        "input_flow_data": {
-            "flow_context": {
-                "debug_overrides": {},
-                "start_location": {"location": "manual_link"},
-            }
-        },
-        "subtask_versions": {
-            "action_list": 2,
-            "alert_dialog": 1,
-            "app_download_cta": 1,
-            "check_logged_in_account": 1,
-            "choice_selection": 3,
-            "contacts_live_sync_permission_prompt": 0,
-            "cta": 7,
-            "email_verification": 2,
-            "end_flow": 1,
-            "enter_date": 1,
-            "enter_email": 2,
-            "enter_password": 5,
-            "enter_phone": 2,
-            "enter_recaptcha": 1,
-            "enter_text": 5,
-            "enter_username": 2,
-            "generic_urt": 3,
-            "in_app_notification": 1,
-            "interest_picker": 3,
-            "js_instrumentation": 1,
-            "menu_dialog": 1,
-            "notifications_permission_prompt": 2,
-            "open_account": 2,
-            "open_home_timeline": 1,
-            "open_link": 1,
-            "phone_verification": 4,
-            "privacy_options": 1,
-            "security_key": 3,
-            "select_avatar": 4,
-            "select_banner": 2,
-            "settings_list": 7,
-            "show_code": 1,
-            "sign_up": 2,
-            "sign_up_review": 4,
-            "tweet_selection_urt": 1,
-            "update_users": 1,
-            "upload_media": 1,
-            "user_recommendations_list": 4,
-            "user_recommendations_urt": 1,
-            "wait_spinner": 3,
-            "web_modal": 1,
-        },
-    }
-
-    get_sso_payload = {
-        "flow_token": "g;167658632144249788:-1676586337028:ZJlPGfGY6fmt0YNIvwX5MhR5:0",
-        "subtask_inputs": [
-            {
-                "subtask_id": "LoginJsInstrumentationSubtask",
-                "js_instrumentation": {
-                    "response": '{"rf":{"ae0c387278259a55d975ad389656c366bb247af661b87720a61ef1f00415a074":-1,"a08bdec063bd39221c4a9ed88833e66ed219aa1b1ffffbb689c7e878b77ed9c5":170,"a406e976cde22b2559c171f75fdb53d08cdec1b36eca8a157a8f8d535e5c4cfa":-12,"ec40d46fc7ad9581fc9c23c52181d7a1bb69fa94278a883ed01a381b4a0fe4d7":224},"s":"1pN0NCz6xs95SmhDHPdYrjG_zpdLJkzjMO8oTRG2VzM6oiyEuGIZFpGKUDLlNdVqJwMOIqLTOvnRQI860XuhPuft1-jMyHl_2rJGwyXKl2gcIP9lulFs39K9uRdaVfZK6UDmC_fWtbqJpiUt5DapQNK0T6wwq0PIAZG28cXYTveoiBZBJz3e3_fzUJYbSuYWZviw9W_M_AE3PAtFvF2294NwFENJ6n3DkNi-yaBVYq9nOeTieVGSiw_TdxnDGmd76yimmLpfD1yJFVDA1Z2WRy0ytCCzWjWck0MJuq1cBc1JpV9Jhjk_sPqqlKQiiG2pdbR5NP4fSN-AIa1luCSywwAAAYZcVUO7"}',
-                    "link": "next_link",
-                },
-            }
-        ],
-    }
-
-    account_duplication_check_payload = {
-        "flow_token": "g;167658632144249788:-1676586337028:ZJlPGfGY6fmt0YNIvwX5MhR5:11",
-        "subtask_inputs": [
-            {
-                "subtask_id": "AccountDuplicationCheck",
-                "check_logged_in_account": {"link": "AccountDuplicationCheck_false"},
-            }
-        ],
-    }
-
-    get_full_ct0_payload = {
-        "flow_token": "g;167658632144249788:-1676586337028:ZJlPGfGY6fmt0YNIvwX5MhR5:17",
-        "subtask_inputs": [],
-    }
-
-    # may be useful in the future if the mapping if subject to change
-    tasks = {
-        0: "LoginJsInstrumentationSubtask",
-        1: "LoginEnterUserIdentifierSSO",
-        7: "LoginEnterAlternateIdentifierSubtask",
-        8: "LoginEnterPassword",
-        11: "AccountDuplicationCheck",
-        17: "LoginSuccessSubtask",
-    }
-
     def __init__(self, cookie_path=None, config_dict=None):
         self._headers = {
             "Host": "api.twitter.com",
@@ -286,39 +197,108 @@ class TwitterLoginBot:
 
         self._cookie_path = cookie_path
         self._config_dict = config_dict
-        self.load_config()
+        self._init_forms()
 
         # get the flow_token
         self.get_login_flow_token()
 
         while int(self.login_flow_token.split(":")[-1]) != 17:
-            self.do_task()
+            self._do_task()
 
         # one more time to get longer ct0
         display_msg("update to full ct0")
-        self.do_task()
+        self._do_task()
 
         # save the cookies for reuse
         self.save_cookies()
 
         print("")
 
-        """    
-        display_msg("test login status")
-        url = TwitterBot.urls["block_url"]
-        block_form = {"user_id": str(44196397)}
-        r = self._session.post("https://api.twitter.com/1.1/blocks/create.json", headers=self._headers, params=block_form)
-        if r.status_code == 200:
-            print("successfully sent block post!")
-        display_msg("block")
-        print(r.status_code, r.text)
-        """
-
-    def load_config(self):
+    def _init_forms(self):
         EMAIL = self._config_dict["login"]["email"]
         PASSWORD = self._config_dict["login"]["password"]
         SCREENNAME = self._config_dict["login"]["screenname"]
         PHONENUMBER = self._config_dict["login"]["phonenumber"]
+
+        self.get_token_payload = {
+            "input_flow_data": {
+                "flow_context": {
+                    "debug_overrides": {},
+                    "start_location": {"location": "manual_link"},
+                }
+            },
+            "subtask_versions": {
+                "action_list": 2,
+                "alert_dialog": 1,
+                "app_download_cta": 1,
+                "check_logged_in_account": 1,
+                "choice_selection": 3,
+                "contacts_live_sync_permission_prompt": 0,
+                "cta": 7,
+                "email_verification": 2,
+                "end_flow": 1,
+                "enter_date": 1,
+                "enter_email": 2,
+                "enter_password": 5,
+                "enter_phone": 2,
+                "enter_recaptcha": 1,
+                "enter_text": 5,
+                "enter_username": 2,
+                "generic_urt": 3,
+                "in_app_notification": 1,
+                "interest_picker": 3,
+                "js_instrumentation": 1,
+                "menu_dialog": 1,
+                "notifications_permission_prompt": 2,
+                "open_account": 2,
+                "open_home_timeline": 1,
+                "open_link": 1,
+                "phone_verification": 4,
+                "privacy_options": 1,
+                "security_key": 3,
+                "select_avatar": 4,
+                "select_banner": 2,
+                "settings_list": 7,
+                "show_code": 1,
+                "sign_up": 2,
+                "sign_up_review": 4,
+                "tweet_selection_urt": 1,
+                "update_users": 1,
+                "upload_media": 1,
+                "user_recommendations_list": 4,
+                "user_recommendations_urt": 1,
+                "wait_spinner": 3,
+                "web_modal": 1,
+            },
+        }
+
+        self.get_sso_payload = {
+            "flow_token": "g;167658632144249788:-1676586337028:ZJlPGfGY6fmt0YNIvwX5MhR5:0",
+            "subtask_inputs": [
+                {
+                    "subtask_id": "LoginJsInstrumentationSubtask",
+                    "js_instrumentation": {
+                        "response": '{"rf":{"ae0c387278259a55d975ad389656c366bb247af661b87720a61ef1f00415a074":-1,"a08bdec063bd39221c4a9ed88833e66ed219aa1b1ffffbb689c7e878b77ed9c5":170,"a406e976cde22b2559c171f75fdb53d08cdec1b36eca8a157a8f8d535e5c4cfa":-12,"ec40d46fc7ad9581fc9c23c52181d7a1bb69fa94278a883ed01a381b4a0fe4d7":224},"s":"1pN0NCz6xs95SmhDHPdYrjG_zpdLJkzjMO8oTRG2VzM6oiyEuGIZFpGKUDLlNdVqJwMOIqLTOvnRQI860XuhPuft1-jMyHl_2rJGwyXKl2gcIP9lulFs39K9uRdaVfZK6UDmC_fWtbqJpiUt5DapQNK0T6wwq0PIAZG28cXYTveoiBZBJz3e3_fzUJYbSuYWZviw9W_M_AE3PAtFvF2294NwFENJ6n3DkNi-yaBVYq9nOeTieVGSiw_TdxnDGmd76yimmLpfD1yJFVDA1Z2WRy0ytCCzWjWck0MJuq1cBc1JpV9Jhjk_sPqqlKQiiG2pdbR5NP4fSN-AIa1luCSywwAAAYZcVUO7"}',
+                        "link": "next_link",
+                    },
+                }
+            ],
+        }
+
+        self.account_duplication_check_payload = {
+            "flow_token": "g;167658632144249788:-1676586337028:ZJlPGfGY6fmt0YNIvwX5MhR5:11",
+            "subtask_inputs": [
+                {
+                    "subtask_id": "AccountDuplicationCheck",
+                    "check_logged_in_account": {"link": "AccountDuplicationCheck_false"},
+                }
+            ],
+        }
+
+        self.get_full_ct0_payload = {
+            "flow_token": "g;167658632144249788:-1676586337028:ZJlPGfGY6fmt0YNIvwX5MhR5:17",
+            "subtask_inputs": [],
+        }
 
         self.enter_email_payload = {
             "flow_token": "g;167658632144249788:-1676586337028:ZJlPGfGY6fmt0YNIvwX5MhR5:1",
@@ -358,7 +338,17 @@ class TwitterLoginBot:
             ],
         }
 
-    def customize_headers(self, case):
+        # may be useful in the future if the mapping if subject to change
+        self.tasks = {
+            0: {"name": "LoginJsInstrumentationSubtask", "payload": self.get_sso_payload},
+            1: {"name": "LoginEnterUserIdentifierSSO", "payload": self.enter_email_payload},
+            7: {"name": "LoginEnterAlternateIdentifierSubtask", "payload": self.enter_alternative_id_payload},
+            8: {"name": "LoginEnterPassword", "payload": self.enter_password_payload},
+            11: {"name": "AccountDuplicationCheck", "payload": self.account_duplication_check_payload},
+            17: {"name": "LoginSuccessSubtask", "payload": self.get_full_ct0_payload},
+        }
+
+    def _customize_headers(self, case):
         if case == "get_js":
             self._headers["Sec-Fetch-Mode"] = "no-cors"
             self._headers["Sec-Fetch-Dest"] = "script"
@@ -397,7 +387,7 @@ class TwitterLoginBot:
         pickle.dump(full_cookie, open(self._cookie_path, "wb"))
         display_msg("cookies from requests saved")
 
-    def prepare_next_login_task(self, r):
+    def _prepare_next_login_task(self, r):
         print(r.status_code)
         j = r.json()
         self.login_flow_token = j["flow_token"]
@@ -408,18 +398,17 @@ class TwitterLoginBot:
         for s in subtasks:
             print(s["subtask_id"])
 
-    def do_task(self):
+    def _do_task(self):
         task = int(self.login_flow_token.split(":")[-1])
+        display_msg(self.tasks[task]["name"])
 
         # establish session and prepare for enter email
         if task == 0:
-            self.customize_headers("get_js")
+            self._customize_headers("get_js")
             r = self._session.get("https://twitter.com/i/js_inst?c_name=ui_metrics", headers=self._headers)
 
             # should have _twitter_sess cookie now
             # display_session_cookies(self._session)
-
-            display_msg("ui_metrics.txt")
 
             match = re.search(r"{'rf':{'.+};};", r.text)
             m = match.group(0)
@@ -433,67 +422,29 @@ class TwitterLoginBot:
             # get rid of ending ;};
             m = m[:-3]
             double_quoted_m = m.replace("'", '"')
-            TwitterLoginBot.get_sso_payload["subtask_inputs"][0]["js_instrumentation"]["response"] = double_quoted_m
+            self.get_sso_payload["subtask_inputs"][0]["js_instrumentation"]["response"] = double_quoted_m
 
-            self.customize_headers("get_sso")
-            TwitterLoginBot.get_sso_payload["flow_token"] = self.login_flow_token
-
-            r = self._session.post(
-                "https://api.twitter.com/1.1/onboarding/task.json",
-                headers=self._headers,
-                data=json.dumps(TwitterLoginBot.get_sso_payload),
-            )
-
-        # enter email
-        if task == 1:
-            display_msg("enter email")
-            self.enter_email_payload["flow_token"] = self.login_flow_token
+            self._customize_headers("get_sso")
+            self.get_sso_payload["flow_token"] = self.login_flow_token
 
             r = self._session.post(
                 "https://api.twitter.com/1.1/onboarding/task.json",
                 headers=self._headers,
-                data=json.dumps(self.enter_email_payload),
+                data=json.dumps(self.get_sso_payload),
             )
 
-        # enter alternative identifier
-        if task == 7:
-            display_msg("enter alternative identifier")
-            self.enter_alternative_id_payload["flow_token"] = self.login_flow_token
+        else:
+            payload = self.tasks[task]["payload"]
+
+            payload["flow_token"] = self.login_flow_token
+
             r = self._session.post(
                 "https://api.twitter.com/1.1/onboarding/task.json",
                 headers=self._headers,
-                data=json.dumps(self.enter_alternative_id_payload),
+                data=json.dumps(payload),
             )
 
-        # enter password
-        if task == 8:
-            display_msg("enter password")
-            self.enter_password_payload["flow_token"] = self.login_flow_token
-            r = self._session.post(
-                "https://api.twitter.com/1.1/onboarding/task.json",
-                headers=self._headers,
-                data=json.dumps(self.enter_password_payload),
-            )
-
-        # duplication check
-        if task == 11:
-            display_msg("account duplication check")
-            TwitterLoginBot.account_duplication_check_payload["flow_token"] = self.login_flow_token
-            r = self._session.post(
-                "https://api.twitter.com/1.1/onboarding/task.json",
-                headers=self._headers,
-                data=json.dumps(TwitterLoginBot.account_duplication_check_payload),
-            )
-
-        if task == 17:
-            TwitterLoginBot.get_full_ct0_payload["flow_token"] = self.login_flow_token
-            r = self._session.post(
-                "https://api.twitter.com/1.1/onboarding/task.json",
-                headers=self._headers,
-                data=json.dumps(TwitterLoginBot.get_full_ct0_payload),
-            )
-
-        self.prepare_next_login_task(r)
+        self._prepare_next_login_task(r)
 
     def get_login_flow_token(self):
         r = self._session.get("https://twitter.com/i/flow/login")
@@ -525,10 +476,10 @@ class TwitterLoginBot:
         r = self._session.post(
             "https://api.twitter.com/1.1/onboarding/task.json?flow_name=login",
             headers=self._headers,
-            params=TwitterLoginBot.get_token_payload,
+            params=self.get_token_payload,
         )
 
-        self.prepare_next_login_task(r)
+        self._prepare_next_login_task(r)
 
         # att is set by the response cookie
 
@@ -799,7 +750,9 @@ class TwitterBot:
                 self._block_list[user.user_id] = user.screen_name
                 save_yaml(self._block_list, self._block_list_path, "w")
 
-            print(f"ORACLE TIME!: id {user.user_id:<25} name {user.screen_name:<20} followers_count {user.followers_count:<10} is {conclusion_str}")
+            print(
+                f"ORACLE TIME!: id {user.user_id:<25} name {user.screen_name:<16} followers_count {user.followers_count:<10} days_since_reg {user.days_since_registration:<5} is {conclusion_str}"
+            )
 
     def get_notifications(self):
         """
@@ -830,24 +783,24 @@ class TwitterBot:
         logged_users = {}
 
         if result.globalObjects.users:
-            users = result.globalObjects.users   
-            #annoying: cannot use variable in dot attribute getter      
+            users = result.globalObjects.users
+            # annoying: cannot use variable in dot attribute getter
             for user in users.values():
                 p = TwitterUserProfile(
                     user.id,
                     user.screen_name,
-                    created_at = user.created_at,
-                    following_count = user.friends_count,
-                    followers_count = user.followers_count,
-                    tweet_count = user.statuses_count,
-                    media_count = user.media_count,
-                    favourites_count = user.favourites_count,
+                    created_at=user.created_at,
+                    following_count=user.friends_count,
+                    followers_count=user.followers_count,
+                    tweet_count=user.statuses_count,
+                    media_count=user.media_count,
+                    favourites_count=user.favourites_count,
                     name=user.name,
                 )
                 print(dataclasses.asdict(p))
                 logged_users[p.user_id] = p
-                
-                #logged_users[user.id] = user #need to modify oracle
+
+                # logged_users[user.id] = user #need to modify oracle
 
         display_msg("globalObjects['tweets]")
         id_indexed_tweets = {}
@@ -866,7 +819,7 @@ class TwitterBot:
         if result.globalObjects.notifications:
             notifications = result.globalObjects.notifications
             for notification in notifications.values():
-                #print(notification.message.text)
+                # print(notification.message.text)
                 for e in notification.message.entities:
                     entry_user_id = int(e.ref.user.id)
                     # add the users appearing in notifications (do not include replies)
@@ -895,7 +848,7 @@ class TwitterBot:
         non_cursor_tweet_entries = [x for x in non_cursor_entries if x.content.item.content.tweet]
 
         display_msg("timeline: non_cursor_notification")
-        # users_liked_your_tweet/user_liked_multiple_tweets/user_liked_tweets_about_you/generic_login_notification/users_retweeted_your_tweet
+        # users_liked_your_tweet/user_liked_multiple_tweets/user_liked_tweets_about_you/generic_login_notification/generic_report_received/users_retweeted_your_tweet
         for x in non_cursor_notification_entries:
             print(x.sortIndex, x.content.item.clientEventInfo.element)
 
@@ -926,34 +879,33 @@ class TwitterBot:
                 self.latest_sortindex = x.sortIndex
 
                 self.update_local_cursor(cursor.value)
-                #self.update_remote_latest_cursor()  # will cause the badge to disappear
-                    
-    def _cursor_from_entries(self,entries):
+                # self.update_remote_latest_cursor()  # will cause the badge to disappear
+
+    def _cursor_from_entries(self, entries):
         for e in entries[-2:]:
             content = e.content
             if content.entryType == "TimelineTimelineCursor":
                 if content.cursorType == "Bottom":
                     return content.value
-                    
+
     def _users_from_entries(self, entries):
         for e in entries:
             content = e.content
             if content.entryType == "TimelineTimelineItem":
-                r=content.itemContent.user_results.result
-      
+                r = content.itemContent.user_results.result
+
                 if content.itemContent.user_results.result._TwitterBot__typename == "User":
-                    
                     user = content.itemContent.user_results.result.legacy
 
                     p = TwitterUserProfile(
                         int(e.entryId.split("-")[1]),
                         user.screen_name,
-                        created_at = user.created_at,
-                        following_count = user.friends_count,
-                        followers_count = user.followers_count,
-                        tweet_count = user.statuses_count,
-                        media_count = user.media_count,
-                        favourites_count = user.favourites_count,
+                        created_at=user.created_at,
+                        following_count=user.friends_count,
+                        followers_count=user.followers_count,
+                        tweet_count=user.statuses_count,
+                        media_count=user.media_count,
+                        favourites_count=user.favourites_count,
                         name=user.name,
                     )
 
@@ -962,7 +914,6 @@ class TwitterBot:
                 else:
                     # otherwise the typename is UserUnavailable
                     print("cannot get user data", e.entryId)
-        
 
     def _json_headers(self):
         headers = copy.deepcopy(self._headers)
@@ -978,21 +929,21 @@ class TwitterBot:
 
             response = r.json()
             response = TwitterJSON(response)
-            
+
             data = response.data
-            
-            if  data.retweeters_timeline:
+
+            if data.retweeters_timeline:
                 instructions = data.retweeters_timeline.timeline.instructions
             else:
-                instructions = data.user.result.timeline.timeline.instructions         
-            
+                instructions = data.user.result.timeline.timeline.instructions
+
             entries = [x for x in instructions if x.type == "TimelineAddEntries"][0].entries
-            
-            if len(entries)<=2:
+
+            if len(entries) <= 2:
                 break
-                
+
             yield entries
-            
+
             bottom_cursor = self._d_cursor_from_entries(entries)
             form["variables"]["cursor"] = bottom_cursor
 
@@ -1096,6 +1047,7 @@ if __name__ == "__main__":
     bot.update_local_cursor("DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFgwhLgACwACAAAAC0FZWlliaFJQdHpNCAADjyMIvwAA")
     try:
         # use a small query to test the validity of cookies
+        bot.refresh_cookies()
         bot.get_badge_count()
     except:
         bot.refresh_cookies()
@@ -1121,17 +1073,22 @@ if __name__ == "__main__":
     x = sntwitter.TwitterUserScraper("rapist86009197")
     count = 0
     for item in x.get_items():
-        count+=1
+        count += 1
         content = json.loads(item.json())
-        print(chatgpt_moderation(content['rawContent']))
+        print(chatgpt_moderation(content["rawContent"]))
     print(count)
-    #bot.reporter.report_user("KarenLoomis17", "GovBot", user_id = 1605874400816816128)
-    #bot.reporter.report_user("rapist86009197","SexualHarassment", user_id = 1631332912120438796,  context_msg = "this person has been harrasing me for months. most of its previous accounts are suspended, this is the latest one. its user name wishes me death")
- 
-    bot.reporter.report_propaganda_hashtag(
-        "ThisispureslanderthatChinahasestablishedasecretpolicedepartmentinEngland",
-        context_msg="this account is part of a coordinated campaingn from chinese government, it uses hashtags that are exclusively used by chinese state sponsored bots",
+    # bot.reporter.report_user("KarenLoomis17", "GovBot", user_id = 1605874400816816128)
+    bot.reporter.report_user(
+        "rapist86009197",
+        "SexualHarassment",
+        user_id=1631332912120438796,
+        context_msg="this person has been harrasing me for months. most of its previous accounts are suspended, this is the latest one. its user name wishes me death",
     )
+
+    # bot.reporter.report_propaganda_hashtag(
+    #    "ThisispureslanderthatChinahasestablishedasecretpolicedepartmentinEngland",
+    #    context_msg="this account is part of a coordinated campaingn from chinese government, it uses hashtags that are exclusively used by chinese state sponsored bots",
+    # )
 
     # bot.block_user('44196397') #https://twitter.com/elonmusk (for test)
     # print(TwitterBot.notification_all_form["cursor"], bot.latest_sortindex)
