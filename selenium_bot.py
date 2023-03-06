@@ -28,50 +28,35 @@ import yaml
 
 from datetime import datetime, timezone
 
+
 def save_yaml(dictionary, filepath, write_mode):
-    yaml_path = os.path.join(pwd, filepath)
-    with open(yaml_path, write_mode) as f:
+    with open(filepath, write_mode) as f:
         yaml.dump(dictionary, f)
 
 
 def load_yaml(filepath):
-    yaml_path = os.path.join(pwd, filepath)
+    # yaml_path = os.path.join(pwd, filepath)
     try:
-        with open(yaml_path, "r") as stream:
+        with open(filepath, "r") as stream:
             dictionary = yaml.safe_load(stream)
             return dictionary
     except:
         traceback.print_exc()
         return None
 
-pwd = os.path.dirname(os.path.realpath(__file__))
-CONFIG_PATH = os.path.join(pwd, "apifree.yaml") 
-COOKIE_PATH = os.path.join(pwd, "sl_cookies.pkl")
-
-config_dict = load_yaml(CONFIG_PATH)
-
-EMAIL = config_dict["login"]['email']
-PASSWORD= config_dict["login"]['password']
-SCREENNAME= config_dict["login"]["screenname"]
-PHONENUMBER= config_dict["login"]["phonenumber"]
-
 
 class SeleniumTwitterBot:
     # login url
-    url = "https://twitter.com/rats_in_maze"
+    url = "https://twitter.com"
     notification_url = "https://twitter.com/notifications"
     home_url = "https://twitter.com/home"
 
     # ------------------------ALL XPATHS--------------------------
     # login banner at the bottom of a page, if logged out
     # if screen is small, somehow the path is different!?
-    enter_login_button_alt_xpath = (
-        "//*[@id='layers']/div/div[1]/div/div/div/div/div/div/div/div[1]/a"
-    )
+    enter_login_button_alt_xpath = "//*[@id='layers']/div/div[1]/div/div/div/div/div/div/div/div[1]/a"
     # on normal screen
-    enter_login_button_xpath = (
-        "//*[@id='layers']/div/div[1]/div/div/div/div[2]/div[2]/div/div/div[1]/a"
-    )
+    enter_login_button_xpath = "//*[@id='layers']/div/div[1]/div/div/div/div[2]/div[2]/div/div/div[1]/a"
     banner_xpath = "//*[@id='modal-header']/span"
 
     # email input and next button
@@ -80,66 +65,79 @@ class SeleniumTwitterBot:
     next_button_xpath = "//*[@id='layers']/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/div[6]/div"
 
     # password input and login button
-    password_input_xpath = "//*[@id='layers']/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div/div[3]/div/label/div/div[2]/div[1]/input"
+    password_input_xpath = (
+        "//*[@id='layers']/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div/div[3]/div/label/div/div[2]/div[1]/input"
+    )
     login_button_xpath = "//*[@id='layers']/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div[1]/div/div/div"
 
     # possible warning title
     title_xpath = "//*[@id='modal-header']/span/span"
     warning_title = "Enter your phone number or username"
-    warning_detail_xpath = "//*[@id='layers']/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div[1]/div/div/div/div/span/span"
+    warning_detail_xpath = (
+        "//*[@id='layers']/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div[1]/div/div/div/div/span/span"
+    )
 
     # unusual activity input and next button (leading to password screen)
-    warning_input_xpath = "//*[@id='layers']/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div[2]/label/div/div[2]/div/input"
+    warning_input_xpath = (
+        "//*[@id='layers']/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div[2]/label/div/div[2]/div/input"
+    )
     warning_next_button_xpath = "//*[@id='layers']/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div/div/div/div"
 
     # handle phone check
-    phone_input_xpath = "/html/body/div[1]/div/div/div[1]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div[2]/label/div/div[2]/div/input"
+    phone_input_xpath = (
+        "/html/body/div[1]/div/div/div[1]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div[2]/label/div/div[2]/div/input"
+    )
 
     # notification tab
-    notification_tab_xpath = (
-        "//*[@id='react-root']/div/div/div[2]/header/div/div/div/div[1]/div[2]/nav/a[3]"
-    )
+    notification_tab_xpath = "//*[@id='react-root']/div/div/div[2]/header/div/div/div/div[1]/div[2]/nav/a[3]"
     notification_indication_xpath = "//*[@id='react-root']/div/div/div[2]/header/div/div/div/div[1]/div[2]/nav/a[3]/div/div/div"
 
-    cell_xpath = (
-        lambda i: f"//*[@id='react-root']/div/div/div[2]/main/div/div/div/div/div/div[3]/section/div/div/div[{i}]"
-    )
-    # non_reply_item_xpath = lambda i: f"//*[@id='react-root']/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/section/div/div/div[{i}]/div/div/article"
-    non_reply_item_xpath = (
-        lambda i: f"/html/body/div[1]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/section/div/div/div[{i}]/div/div/article"
-    )
+    cell_xpath = lambda i: f"//*[@id='react-root']/div/div/div[2]/main/div/div/div/div/div/div[3]/section/div/div/div[{i}]"
+                                       
+    non_reply_item_xpath = lambda i: f"/html/body/div[1]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/section/div/div/div[{i}]/div/div/article"
+
     non_reply_id_xpath = (
         lambda i: f"/html/body/div[1]/div/div/div[2]/main/div/div/div/div/div/div[3]/section/div/div/div[{i}]/div/div/article/div[1]/div[2]/div[2]/div/a"
     )
-    # reply_item_xpath = lambda i: f"//*[@id='react-root']/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/section/div/div/div[{i}]/div/div/div/article"
-    reply_item_xpath = (
-        lambda i: f"/html/body/div[1]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/section/div/div/div[{i}]/div/div/div/article"
+    #only present in sysinfo
+    sys_info_xpath = (
+        lambda i: f"/html/body/div[1]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/section/div/div/div[{i}]/div/div/article/div[1]/div[2]"
     )
+ 
+    reply_item_xpath = lambda i: f"/html/body/div[1]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/section/div/div/div[{i}]/div/div/article"
+    
     reply_id_xpath = (
-        lambda i: f"/html/body/div[1]/div/div/div[2]/main/div/div/div/div/div/div[3]/section/div/div/div[{i}]/div/div/div/article/div/div/div/div[2]/div[2]/div[1]/div/div/div[1]/div/div/div[1]/div/a"
+        lambda i: f"/html/body/div[1]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/section/div/div/div[{i}]/div/div/article/div/div/div[2]/div[2]/div[1]/div/div[1]/div/div/div[1]/div/a"
     )
     reply_time_xpath = (
-        lambda i: f"/html/body/div[1]/div/div/div[2]/main/div/div/div/div/div/div[3]/section/div/div/div[{i}]/div/div/div/article/div/div/div/div[2]/div[2]/div[1]/div/div/div[1]/div/div/div[2]/div/div[3]/a/time"
+        lambda i: f"/html/body/div[1]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/section/div/div/div[{i}]/div/div/article/div/div/div[2]/div[2]/div[1]/div/div[1]/div/div/div[2]/div/div[3]/a/time"
     )
+
 
     # sometimes you get a square page saying there is an error, refresh or logout?
     refresh_button_xpath = "//*[@id='layers']/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div/div[2]/div[2]/div[1]"
 
     # items to click for block via user page
     operation_menu_button_xpath = "//*[@id='react-root']/div/div/div[2]/main/div/div/div/div/div/div[3]/div/div/div/div/div[1]/div[2]/div[1]"
-    block_button_xpath = (
-        "//*[@id='layers']/div[2]/div/div/div/div[2]/div/div[3]/div/div/div/div[3]"
-    )
-    agree_block_button_xpath = (
-        "//*[@id='layers']/div[2]/div/div/div/div/div/div[2]/div[2]/div[2]/div[1]"
-    )
+    block_button_xpath = "//*[@id='layers']/div[2]/div/div/div/div[2]/div/div[3]/div/div/div/div[3]"
+    agree_block_button_xpath = "//*[@id='layers']/div[2]/div/div/div/div/div/div[2]/div[2]/div[2]/div[1]"
 
     # problem: the path is different depending on user profile
     following_count_xpath = "/html/body/div[1]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/div/div/div/div/div[5]/div[1]/a/span[1]/span"
     follower_count_xpath = "/html/body/div[1]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/div/div/div/div/div[5]/div[2]/a/span[1]/span"
     join_date_xpath = "/html/body/div[1]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/div/div/div/div/div[4]/div/span/span"
 
-    def __init__(self):
+    def __init__(self, config_path=None, cookie_path=None):
+        self._config_path = config_path
+        self._cookie_path = cookie_path
+
+        config_dict = load_yaml(self._config_path)
+
+        self._email = config_dict["login"]["email"]
+        self._password = config_dict["login"]["password"]
+        self._screenname = config_dict["login"]["screenname"]
+        self._phonenumber = config_dict["login"]["phonenumber"]
+
         self.setup_driver()
 
     def setup_driver(self):
@@ -151,8 +149,8 @@ class SeleniumTwitterBot:
         if current_platform == "Linux":
             firefox_options = webdriver.FirefoxOptions()
             firefox_options.add_argument("--headless")
-            driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()),options=firefox_options)
-            #driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()))
+            driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()), options=firefox_options)
+            # driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()))
         # user agent
         # driver.execute_cdp_cmd('Network.setUserAgentOverride', {"userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.5414.119 Safari/537.36'})
         print(driver.execute_script("return navigator.userAgent;"))
@@ -200,21 +198,15 @@ class SeleniumTwitterBot:
             print(cookie)
 
     def get_reply_user_url_finished(self, d):
-        self._user_url = d.execute_script(
-            "return arguments[0].getAttribute('href');", self._current_element
-        )
+        self._user_url = d.execute_script("return arguments[0].getAttribute('href');", self._current_element)
         return self._user_url is not None
 
     def get_reply_user_datetime_finished(self, d):
-        self._user_datetime = d.execute_script(
-            "return arguments[0].getAttribute('datetime');", self._current_time_element
-        )
+        self._user_datetime = d.execute_script("return arguments[0].getAttribute('datetime');", self._current_time_element)
         return self._user_datetime is not None
 
     def get_non_reply_user_url_finished(self, d):
-        self._user_url = d.execute_script(
-            "return arguments[0].getAttribute('href');", self._current_element
-        )
+        self._user_url = d.execute_script("return arguments[0].getAttribute('href');", self._current_element)
         return self._user_url is not None
 
     def check_user(self, user_name):
@@ -242,41 +234,33 @@ class SeleniumTwitterBot:
         print(banner.text)
 
         # fill in email
-        self.input_xpath(EMAIL, SeleniumTwitterBot.email_input_xpath)
+        self.input_xpath(self._email, SeleniumTwitterBot.email_input_xpath)
 
         # test if the system requires screenname
         title = self.wait_and_find_element_xpath(SeleniumTwitterBot.title_xpath).text
         print(title)
         if title == SeleniumTwitterBot.warning_title:
-            print(
-                self.driver.find_element(
-                    By.XPATH, SeleniumTwitterBot.warning_detail_xpath
-                ).text
-            )
+            print(self.driver.find_element(By.XPATH, SeleniumTwitterBot.warning_detail_xpath).text)
 
             # fill in screenname
-            self.input_xpath(SCREENNAME, SeleniumTwitterBot.warning_input_xpath)
+            self.input_xpath(self._screenname, SeleniumTwitterBot.warning_input_xpath)
 
         # fill in password
-        self.input_xpath(PASSWORD, SeleniumTwitterBot.password_input_xpath)
-        
+        self.input_xpath(self._password, SeleniumTwitterBot.password_input_xpath)
+
     def save_cookies(self):
-        pickle.dump(
-            self.driver.get_cookies(), open(COOKIE_PATH, "wb")
-        )
+        pickle.dump(self.driver.get_cookies(), open(self._cookie_path, "wb"))
 
     def twitter_login(self):
         # cookie refreshment? expiration? what will happen when one of the cookies expire?
-        if os.path.exists(COOKIE_PATH):
+        if os.path.exists(self._cookie_path):
             self.driver.get(SeleniumTwitterBot.home_url)
 
             try:
-                self.load_cookies(COOKIE_PATH)
+                self.load_cookies(self._cookie_path)
 
                 sleep(1)
-                l = self.driver.find_elements(
-                    By.XPATH, SeleniumTwitterBot.refresh_button_xpath
-                )
+                l = self.driver.find_elements(By.XPATH, SeleniumTwitterBot.refresh_button_xpath)
                 if len(l) > 0:
                     print("NEED TO CLICK THE REFRESH BUTTON")
                     # after click the refresh button, the page will redirect to home page, not notification page
@@ -296,15 +280,11 @@ class SeleniumTwitterBot:
         try:
             print("at the end of login:", self.driver.current_url)
             # without cookie, after login, it will auto-redirect to home
-            WebDriverWait(self.driver, timeout=10).until(
-                EC.url_to_be(SeleniumTwitterBot.home_url)
-            )
+            WebDriverWait(self.driver, timeout=10).until(EC.url_to_be(SeleniumTwitterBot.home_url))
             print("On homepage!", self.driver.current_url)
         except:
-            self.input_xpath(PHONENUMBER, SeleniumTwitterBot.phone_input_xpath)
-            self.wait_and_find_element_xpath(
-                SeleniumTwitterBot.phone_input_xpath
-            ).send_keys(Keys.ENTER)
+            self.input_xpath(self._phonenumber, SeleniumTwitterBot.phone_input_xpath)
+            self.wait_and_find_element_xpath(SeleniumTwitterBot.phone_input_xpath).send_keys(Keys.ENTER)
 
     def check_notifications(self):
         # the notification indication will only show after refreshing
@@ -328,23 +308,20 @@ class SeleniumTwitterBot:
         self._current_time_element = None
 
         # twitter's notification "articles"' seq number is dynamically renamed. if you scroll down a lot, the elements will start from 1 again
-        for k in range(1):
+        for k in range(10):
             # records the xpath of last visited element
             last = -1
             for i in range(1, 100):
-                l1 = self.driver.find_elements(
-                    By.XPATH, SeleniumTwitterBot.non_reply_item_xpath(i)
-                )
-                l2 = self.driver.find_elements(
-                    By.XPATH, SeleniumTwitterBot.reply_item_xpath(i)
-                )
+                l1 = self.driver.find_elements(By.XPATH, SeleniumTwitterBot.sys_info_xpath(i))
+                l2 = self.driver.find_elements(By.XPATH, SeleniumTwitterBot.reply_item_xpath(i))
 
-                # there are non-reply items
+                # sys info
                 if len(l1) > 0:
+                    last = SeleniumTwitterBot.sys_info_xpath(i)
+                    continue
+                    """
                     last = SeleniumTwitterBot.non_reply_item_xpath(i)
-                    user_id = self.driver.find_elements(
-                        By.XPATH, SeleniumTwitterBot.non_reply_id_xpath(i)
-                    )
+                    user_id = self.driver.find_elements(By.XPATH, SeleniumTwitterBot.non_reply_id_xpath(i))
 
                     # not all non-reply items have user id (for example, login warning)
                     if len(user_id) > 0:
@@ -352,9 +329,7 @@ class SeleniumTwitterBot:
 
                         try:
                             self._current_element = user_id[0]
-                            WebDriverWait(self.driver, 10).until(
-                                self.get_non_reply_user_url_finished
-                            )
+                            WebDriverWait(self.driver, 10).until(self.get_non_reply_user_url_finished)
                         except:
                             traceback.print_exc()
 
@@ -364,6 +339,7 @@ class SeleniumTwitterBot:
                         print("ID url:", self._user_url)
                         user_urls.add(self._user_url)
                     # print(i,l1[0].text)
+                    """
 
                 # there are reply items
                 if len(l2) > 0:
@@ -374,19 +350,11 @@ class SeleniumTwitterBot:
                     # user_url = driver.execute_script("return arguments[0].getAttribute('href');", driver.find_element(By.XPATH,reply_id_xpath(i)))
                     # WebDriverWait(driver, 10).until(lambda d: d.execute_script("return arguments[0].getAttribute('href');", wait_and_find_element_xpath(driver,reply_id_xpath(i))) is not None)
                     try:
-                        self._current_element = self.wait_and_find_element_xpath(
-                            SeleniumTwitterBot.reply_id_xpath(i)
-                        )
-                        WebDriverWait(self.driver, 10).until(
-                            self.get_reply_user_url_finished
-                        )
+                        self._current_element = self.wait_and_find_element_xpath(SeleniumTwitterBot.reply_id_xpath(i))
+                        WebDriverWait(self.driver, 10).until(self.get_reply_user_url_finished)
 
-                        self._current_time_element = self.wait_and_find_element_xpath(
-                            SeleniumTwitterBot.reply_time_xpath(i)
-                        )
-                        WebDriverWait(self.driver, 10).until(
-                            self.get_reply_user_datetime_finished
-                        )
+                        self._current_time_element = self.wait_and_find_element_xpath(SeleniumTwitterBot.reply_time_xpath(i))
+                        WebDriverWait(self.driver, 10).until(self.get_reply_user_datetime_finished)
 
                     except:
                         traceback.print_exc()
@@ -416,6 +384,10 @@ class SeleniumTwitterBot:
 
 
 if __name__ == "__main__":
-    b = SeleniumTwitterBot()
+    pwd = os.path.dirname(os.path.realpath(__file__))
+    CONFIG_PATH = os.path.join(pwd, "apifree.yaml")
+    COOKIE_PATH = os.path.join(pwd, "sl_cookies.pkl")
+
+    b = SeleniumTwitterBot(config_path=CONFIG_PATH, cookie_path=COOKIE_PATH)
     b.twitter_login()
     b.check_notifications()

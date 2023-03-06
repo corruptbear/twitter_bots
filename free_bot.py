@@ -31,7 +31,9 @@ from collections import abc
 import keyword
 
 
+#CONV_ID = None
 def chatgpt_moderation(sentence):
+    #global CONV_ID
     # https://chat.openai.com/api/auth/session
     chatbot = Chatbot(
         config={
@@ -44,6 +46,8 @@ def chatgpt_moderation(sentence):
 
     for data in chatbot.ask(prompt):
         response = data["message"]
+        print(data["conversation_id"],data["parent_id"],data["message"])
+        CONV_ID = data["conversation_id"]
 
     if response[0] == "Y":
         return True
@@ -169,10 +173,10 @@ class TwitterUserProfile:
 
 
 class TwitterLoginBot:
-    def __init__(self, cookie_path=None, config_dict=None):
+    def __init__(self, email, password, screenname, phonenumber,cookie_path=None):
         self._headers = {
             "Host": "api.twitter.com",
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:109.0) Gecko/20100101 Firefox/109.0",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
             "Accept": "*/*",
             "Accept-Language": "en-US,en;q=0.5",
             "Accept-Encoding": "gzip, deflate, br",
@@ -196,7 +200,12 @@ class TwitterLoginBot:
         self._session = requests.Session()
 
         self._cookie_path = cookie_path
-        self._config_dict = config_dict
+        
+        self._email = email
+        self._password = password
+        self._screenname = screenname
+        self._phonenumber = phonenumber
+        
         self._init_forms()
 
         # get the flow_token
@@ -215,10 +224,6 @@ class TwitterLoginBot:
         print("")
 
     def _init_forms(self):
-        EMAIL = self._config_dict["login"]["email"]
-        PASSWORD = self._config_dict["login"]["password"]
-        SCREENNAME = self._config_dict["login"]["screenname"]
-        PHONENUMBER = self._config_dict["login"]["phonenumber"]
 
         self.get_token_payload = {
             "input_flow_data": {
@@ -309,7 +314,7 @@ class TwitterLoginBot:
                         "setting_responses": [
                             {
                                 "key": "user_identifier",
-                                "response_data": {"text_data": {"result": EMAIL}},
+                                "response_data": {"text_data": {"result": self._email}},
                             }
                         ],
                         "link": "next_link",
@@ -323,7 +328,7 @@ class TwitterLoginBot:
             "subtask_inputs": [
                 {
                     "subtask_id": "LoginEnterAlternateIdentifierSubtask",
-                    "enter_text": {"text": SCREENNAME, "link": "next_link"},
+                    "enter_text": {"text": self._screenname, "link": "next_link"},
                 }
             ],
         }
@@ -333,7 +338,7 @@ class TwitterLoginBot:
             "subtask_inputs": [
                 {
                     "subtask_id": "LoginEnterPassword",
-                    "enter_password": {"password": PASSWORD, "link": "next_link"},
+                    "enter_password": {"password": self._password, "link": "next_link"},
                 }
             ],
         }
@@ -628,7 +633,7 @@ class TwitterBot:
         # display_session_cookies(self._session)
 
         # when disabled, will use the default cursor
-        self.load_cursor()
+        self._load_cursor()
 
         self.reporter = ReportHandler(self._headers, self._session)
 
@@ -662,11 +667,11 @@ class TwitterBot:
         """
         try:
             display_msg("trying using requests to get cookies")
-            b = TwitterLoginBot(cookie_path=self._cookie_path, config_dict=self._config_dict)
+            b = TwitterLoginBot(self._config_dict['login']['email'], self._config_dict['login']['password'], self._config_dict['login']['screenname'], self._config_dict['login']['phonenumber'],cookie_path=self._cookie_path)
             self._load_cookies()
         except:
             display_msg("trying using selenium to get cookies")
-            b = SeleniumTwitterBot()
+            b = SeleniumTwitterBot(config_path = self._config_path, cookie_path = self._cookie_path)
             # new cookie will be saved from selenium
             b.twitter_login()
             b.save_cookies()
@@ -688,7 +693,7 @@ class TwitterBot:
 
         save_yaml(self._config_dict, self._config_path, "w")
 
-    def load_cursor(self):
+    def _load_cursor(self):
         if len(self._config_dict["latest_cursor"]) > 0:
             TwitterBot.notification_all_form["cursor"] = self._config_dict["latest_cursor"]
         print("after loading cursor:", TwitterBot.notification_all_form["cursor"])
@@ -1061,7 +1066,7 @@ if __name__ == "__main__":
         count += 1
         # if count % 100 == 0:
         #    print(count)
-        # match = re.search(r"[a-zA-Z]{6,8}[0-9]{8}", x.screen_name)
+        # match = re.search(r"[a-zA-Z]{7}[0-9]{8}", x.screen_name)
         if "us" in x.name or True:
             print(
                 f"{x.screen_name:<16} following: {x.following_count:>9} follower: {x.followers_count:>9} media: {x.media_count:>8} tweet_per_day: {x.tweet_count / (x.days_since_registration + 0.05):>8.4f}"
@@ -1069,14 +1074,15 @@ if __name__ == "__main__":
 
         if count == 10:
             break
-
+   
+    count = 0 
     x = sntwitter.TwitterUserScraper("rapist86009197")
-    count = 0
     for item in x.get_items():
         count += 1
         content = json.loads(item.json())
         print(chatgpt_moderation(content["rawContent"]))
     print(count)
+            
     # bot.reporter.report_user("KarenLoomis17", "GovBot", user_id = 1605874400816816128)
     bot.reporter.report_user(
         "rapist86009197",

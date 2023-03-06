@@ -36,7 +36,38 @@ def operatorOperands(tokenlist):
             yield (next(it), next(it))
         except StopIteration:
             break
-            
+
+class EvalMultOp:
+    "Class to evaluate multiplication and division expressions"
+
+    def __init__(self, tokens):
+        self.value = tokens[0]
+
+    def eval(self):
+        prod = self.value[0].eval()
+        for op, val in operatorOperands(self.value[1:]):
+            if op == "*":
+                prod *= val.eval()
+            if op == "/":
+                prod /= val.eval()
+        return prod
+
+
+class EvalAddOp:
+    "Class to evaluate addition and subtraction expressions"
+
+    def __init__(self, tokens):
+        self.value = tokens[0]
+
+    def eval(self):
+        s = self.value[0].eval()
+        for op, val in operatorOperands(self.value[1:]):
+            if op == "+":
+                s += val.eval()
+            if op == "-":
+                s -= val.eval()
+        return s
+                    
 class EvalAndOp:
     "Class to evaluate and"
 
@@ -106,20 +137,31 @@ class EvalComparisonOp:
 def rule_eval(rule, vars_):
     variable = CaselessLiteral("followers_count") | CaselessLiteral("following_count") | CaselessLiteral("tweet_count") \
     | CaselessLiteral("default_profile_image") \
-    | CaselessLiteral("days") | CaselessLiteral("tweet_count") 
+    | CaselessLiteral("days") | CaselessLiteral("tweet_count") | Word(alphas, exact=1)
     constant = Word(nums) | CaselessLiteral('True') | CaselessLiteral('False')
     operand = constant | variable 
     notop = CaselessLiteral("not") | Literal('!') 
     andop = CaselessLiteral("and") | Literal("&&") | Literal("&")
     orop = CaselessLiteral("or") | Literal("||") | Literal("|")
+    multop = one_of("* /")
+    plusop = one_of("+ -")
+    
     
     #use the EvalOperand class to parse constants and variables
     operand.set_parse_action(EvalOperand)
     
+    arith_expr = infixNotation(
+        operand,
+        [
+            (multop, 2, opAssoc.LEFT, EvalMultOp),
+            (plusop, 2, opAssoc.LEFT, EvalAddOp),
+        ],
+    )
+    
     #define comparison expression
     comparison_op = one_of("> < >= <= == = !=")
     comp_expr = infixNotation(
-        operand,
+        arith_expr,
         [
             (comparison_op, 2, opAssoc.LEFT, EvalComparisonOp),
         ],
@@ -148,6 +190,7 @@ def default_tests():
         "C": 2,
         "D": 3,
         "E": 4,
+        "F": 5,
     }
 
     exprs = [
@@ -159,6 +202,9 @@ def default_tests():
         "(A >= B) and (C <= D)",
         "A==0 and B==1 and C==2 or (D==3 and E==5)",  
         "A>F", 
+        "A + B < 2",
+        "3 >= F/C >=2",
+        "((A+B)*(C+D) > 5) or ((F-E)>0) "
     ]
 
     tests = []
@@ -181,3 +227,4 @@ def default_tests():
 #print(rule_eval("(False != False)",{}))
 #print(rule_eval( "! ! False",{}))
 #print(rule_eval('True && True && False',{}))
+#default_tests()
