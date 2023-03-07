@@ -31,23 +31,22 @@ from collections import abc
 import keyword
 
 
-#CONV_ID = None
+# CONV_ID = None
 def chatgpt_moderation(sentence):
-    #global CONV_ID
+    # global CONV_ID
     # https://chat.openai.com/api/auth/session
     chatbot = Chatbot(
         config={
-            "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik1UaEVOVUpHTkVNMVFURTRNMEZCTWpkQ05UZzVNRFUxUlRVd1FVSkRNRU13UmtGRVFrRXpSZyJ9.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL3Byb2ZpbGUiOnsiZW1haWwiOiJ3YXdueDcxNkBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiZ2VvaXBfY291bnRyeSI6IlVTIn0sImh0dHBzOi8vYXBpLm9wZW5haS5jb20vYXV0aCI6eyJ1c2VyX2lkIjoidXNlci00VU9DZGFhSGR3N2pob3p3Y3Z5c2VlT3EifSwiaXNzIjoiaHR0cHM6Ly9hdXRoMC5vcGVuYWkuY29tLyIsInN1YiI6Imdvb2dsZS1vYXV0aDJ8MTA0MTIzMjI3OTA5NjQ3MzI3NzUxIiwiYXVkIjpbImh0dHBzOi8vYXBpLm9wZW5haS5jb20vdjEiLCJodHRwczovL29wZW5haS5vcGVuYWkuYXV0aDBhcHAuY29tL3VzZXJpbmZvIl0sImlhdCI6MTY3NzQ3MzAyMywiZXhwIjoxNjc4NjgyNjIzLCJhenAiOiJUZEpJY2JlMTZXb1RIdE45NW55eXdoNUU0eU9vNkl0RyIsInNjb3BlIjoib3BlbmlkIHByb2ZpbGUgZW1haWwgbW9kZWwucmVhZCBtb2RlbC5yZXF1ZXN0IG9yZ2FuaXphdGlvbi5yZWFkIG9mZmxpbmVfYWNjZXNzIn0.InfRXdyfRubck8YSm6X7RXAelafEvDn_b7Oj442MmsWH-yVgQpUxQJnoB6wVgM2YUi6P5Cf7zo4I7ppnVss-IRobWNv7T3Jle5Ds7O9twCxg7GKy_OAnJTTeu0LGIEUNNESfmwHuDb5hm0MkcwpVphHifmaOYqaeLCdvzoFQ7-JUQQr3dqX2W1zMwv4yC0T4GP5o0Wko5Sn7c23r4KgviY4jYGQhxM8OZTjNIJfQMCg-iyI_1BE9b6zMat5UD-zYxg5JydWRm85_h9qDkKp_qhpFMuxc12JzXiHNtDTsnsVu8j-gpzSjJfSkTu24a6bC8GdUwzZplI6ZCUsW5R2FnA"
+            "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik1UaEVOVUpHTkVNMVFURTRNMEZCTWpkQ05UZzVNRFUxUlRVd1FVSkRNRU13UmtGRVFrRXpSZyJ9.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL3Byb2ZpbGUiOnsiZW1haWwiOiJ3YXdueDcxNkBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiZ2VvaXBfY291bnRyeSI6IlVTIn0sImh0dHBzOi8vYXBpLm9wZW5haS5jb20vYXV0aCI6eyJ1c2VyX2lkIjoidXNlci00VU9DZGFhSGR3N2pob3p3Y3Z5c2VlT3EifSwiaXNzIjoiaHR0cHM6Ly9hdXRoMC5vcGVuYWkuY29tLyIsInN1YiI6Imdvb2dsZS1vYXV0aDJ8MTA0MTIzMjI3OTA5NjQ3MzI3NzUxIiwiYXVkIjpbImh0dHBzOi8vYXBpLm9wZW5haS5jb20vdjEiLCJodHRwczovL29wZW5haS5vcGVuYWkuYXV0aDBhcHAuY29tL3VzZXJpbmZvIl0sImlhdCI6MTY3NzkwNzI1MiwiZXhwIjoxNjc5MTE2ODUyLCJhenAiOiJUZEpJY2JlMTZXb1RIdE45NW55eXdoNUU0eU9vNkl0RyIsInNjb3BlIjoib3BlbmlkIHByb2ZpbGUgZW1haWwgbW9kZWwucmVhZCBtb2RlbC5yZXF1ZXN0IG9yZ2FuaXphdGlvbi5yZWFkIG9mZmxpbmVfYWNjZXNzIn0.jOZ_ngatdKhT_9-HPWwXbWX4j4a0lwR36KS5H_ZIhNwyBt5Nkh9I-0WfCx32TkWvNY1ZfMivIja3yYKs84KeNdPp4I4s-FEWuCRutj3D1iMvVBkyYiKgXghtGBLPv4qzrRTf0J2AbI0QxvaQgokZxJkpZRGPE8jeOboy5UgDUcQbUkNy06GSM26TKMFUGfY9EPpL72m-p1Fg9vsYVe9UqaN5wt_mqaG8GxySgKFXWFGmn11a-ThG4-PJEyDt4_pJNk1PdGJakwmwW_0qvZ3WlCaeNXTWESfE57B2aZezwdtke4cgtcnkRq-xJRh2EEkYcgsZDuKcRDVPGv92FB4fpA"
         }
     )
-
+    
     prompt = f"is the chinese sentence '{sentence}' unfriendly, hostile, disrespectul, aggressive, misogynistic, harrassment (sexual or non-sexual), vulgar, insulting, or abusive？ assuming the recipient of this sentence has done nothing wrong. please answer the question using a single letter, if the answer is yes, use Y; if the answer if no, use N; do not add period"
     response = ""
 
     for data in chatbot.ask(prompt):
         response = data["message"]
-        print(data["conversation_id"],data["parent_id"],data["message"])
-        CONV_ID = data["conversation_id"]
+        #print(data["conversation_id"], data["parent_id"], data["message"])
 
     if response[0] == "Y":
         return True
@@ -119,7 +118,12 @@ class TwitterJSON:
             # convert the mangled __typename back to original value
             if "__typename" in name:
                 name = "__typename"
-            return getattr(self.__data, name)
+            # no ambiguity
+            if name != 'items':
+                return getattr(self.__data, name)
+            # we are only in the data, not the built-in method
+            else:
+                raise AttributeError
         except AttributeError:
             if name in self.__data:
                 return TwitterJSON(self.__data[name])
@@ -173,7 +177,7 @@ class TwitterUserProfile:
 
 
 class TwitterLoginBot:
-    def __init__(self, email, password, screenname, phonenumber,cookie_path=None):
+    def __init__(self, email, password, screenname, phonenumber, cookie_path=None):
         self._headers = {
             "Host": "api.twitter.com",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
@@ -200,12 +204,12 @@ class TwitterLoginBot:
         self._session = requests.Session()
 
         self._cookie_path = cookie_path
-        
+
         self._email = email
         self._password = password
         self._screenname = screenname
         self._phonenumber = phonenumber
-        
+
         self._init_forms()
 
         # get the flow_token
@@ -224,7 +228,6 @@ class TwitterLoginBot:
         print("")
 
     def _init_forms(self):
-
         self.get_token_payload = {
             "input_flow_data": {
                 "flow_context": {
@@ -500,6 +503,7 @@ class TwitterBot:
         "retweeters_url": "https://twitter.com/i/api/graphql/ViKvXirbgcKs6SfF5wZ30A/Retweeters",
         "followers_url": "https://twitter.com/i/api/graphql/utPIvA97eaEvxfra_PQz_A/Followers",
         "following_url": "https://twitter.com/i/api/graphql/AmvGuDw_fxEbJtEXie4OkA/Following",
+        "tweets_replies_url": "https://twitter.com/i/api/graphql/pNl8WjKAvaegIoVH--FuoQ/UserTweetsAndReplies",
     }
 
     jot_form_success = {
@@ -578,6 +582,44 @@ class TwitterBot:
             "responsive_web_enhance_cards_enabled": False,
         },
     }
+    
+    tweet_replies_form = {
+            "variables": {
+                "userId": "1629601029678309376",
+                "count": 40,
+                #"cursor": "HCaAgICU9oDCqS0AAA==",
+                "includePromotedContent": True,
+                "withCommunity": True,
+                "withSuperFollowsUserFields": True,
+                "withDownvotePerspective": False,
+                "withReactionsMetadata": False,
+                "withReactionsPerspective": False,
+                "withSuperFollowsTweetFields": True,
+                "withVoice": True,
+                "withV2Timeline": True,
+            },
+            "features": {
+                "responsive_web_twitter_blue_verified_badge_is_enabled": True,
+                "responsive_web_graphql_exclude_directive_enabled": False,
+                "verified_phone_label_enabled": False,
+                "responsive_web_graphql_timeline_navigation_enabled": True,
+                "responsive_web_graphql_skip_user_profile_image_extensions_enabled": False,
+                "tweetypie_unmention_optimization_enabled": True,
+                "vibe_api_enabled": True,
+                "responsive_web_edit_tweet_api_enabled": True,
+                "graphql_is_translatable_rweb_tweet_is_translatable_enabled": True,
+                "view_counts_everywhere_api_enabled": True,
+                "longform_notetweets_consumption_enabled": True,
+                "tweet_awards_web_tipping_enabled": False,
+                "freedom_of_speech_not_reach_fetch_enabled": False,
+                "standardized_nudges_misinfo": True,
+                "tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled": False,
+                "interactive_text_enabled": True,
+                "responsive_web_text_conversations_enabled": False,
+                "longform_notetweets_richtext_consumption_enabled": False,
+                "responsive_web_enhance_cards_enabled": False,
+            },
+        }
 
     def __init__(self, cookie_path=None, config_path=None, white_list_path=None, block_list_path=None, filtering_rule=None):
         self._headers = {
@@ -667,11 +709,17 @@ class TwitterBot:
         """
         try:
             display_msg("trying using requests to get cookies")
-            b = TwitterLoginBot(self._config_dict['login']['email'], self._config_dict['login']['password'], self._config_dict['login']['screenname'], self._config_dict['login']['phonenumber'],cookie_path=self._cookie_path)
+            b = TwitterLoginBot(
+                self._config_dict["login"]["email"],
+                self._config_dict["login"]["password"],
+                self._config_dict["login"]["screenname"],
+                self._config_dict["login"]["phonenumber"],
+                cookie_path=self._cookie_path,
+            )
             self._load_cookies()
         except:
             display_msg("trying using selenium to get cookies")
-            b = SeleniumTwitterBot(config_path = self._config_path, cookie_path = self._cookie_path)
+            b = SeleniumTwitterBot(config_path=self._config_path, cookie_path=self._cookie_path)
             # new cookie will be saved from selenium
             b.twitter_login()
             b.save_cookies()
@@ -919,6 +967,22 @@ class TwitterBot:
                 else:
                     # otherwise the typename is UserUnavailable
                     print("cannot get user data", e.entryId)
+                    
+    def _text_from_entries(self,entries):
+        for e in entries:
+            content = e.content
+            if content.entryType == "TimelineTimelineModule":
+                for i in content.items:
+                    result = i.item.itemContent.tweet_results.result
+                    if result.__typename == "Tweet":
+                        yield result.legacy.full_text
+                    if result.__typename == "TweetWithVisibilityResults":
+                        pass
+                        
+            elif content.entryType == "TimelineTimelineItem":
+                #print(content.itemContent.tweet_results.result.legacy.keys())
+                yield content.itemContent.tweet_results.result.legacy.full_text
+               
 
     def _json_headers(self):
         headers = copy.deepcopy(self._headers)
@@ -940,7 +1004,11 @@ class TwitterBot:
             if data.retweeters_timeline:
                 instructions = data.retweeters_timeline.timeline.instructions
             else:
-                instructions = data.user.result.timeline.timeline.instructions
+                result = data.user.result
+                if result.timeline_v2:
+                    instructions = result.timeline_v2.timeline.instructions
+                else:
+                    instructions = result.timeline.timeline.instructions
 
             entries = [x for x in instructions if x.type == "TimelineAddEntries"][0].entries
 
@@ -949,13 +1017,29 @@ class TwitterBot:
 
             yield entries
 
-            bottom_cursor = self._d_cursor_from_entries(entries)
+            bottom_cursor = self._cursor_from_entries(entries)
             form["variables"]["cursor"] = bottom_cursor
 
     def id_from_screen_name(self, screen_name):
         x = sntwitter.TwitterUserScraper(screen_name)
         userdata = x._get_entity()
         return userdata.id
+
+    def get_tweets_replies(self, user_id):
+        try:
+            int(user_id)
+        except:
+            user_id = self.id_from_screen_name(user_id)
+            
+        headers = self._json_headers()
+        url = TwitterBot.urls["tweets_replies_url"]
+
+        form = copy.deepcopy(TwitterBot.tweet_replies_form)
+        
+        form["variables"]["userId"] = str(user_id)
+        
+        for entries in self._navigate_graphql_entries(url, headers, form):
+            yield from self._text_from_entries(entries)
 
     def get_following(self, user_id):
         """
@@ -1074,15 +1158,15 @@ if __name__ == "__main__":
 
         if count == 10:
             break
-   
-    count = 0 
-    x = sntwitter.TwitterUserScraper("rapist86009197")
-    for item in x.get_items():
-        count += 1
-        content = json.loads(item.json())
-        print(chatgpt_moderation(content["rawContent"]))
-    print(count)
-            
+
+    count = 0
+    
+    for x in bot.get_tweets_replies("rapist86009197"):
+        try:
+            print(chatgpt_moderation(x))
+        except:
+            continue
+
     # bot.reporter.report_user("KarenLoomis17", "GovBot", user_id = 1605874400816816128)
     bot.reporter.report_user(
         "rapist86009197",
