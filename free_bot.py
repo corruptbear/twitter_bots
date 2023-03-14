@@ -46,6 +46,7 @@ def chatgpt_moderation(sentence):
 
     for data in chatbot.ask(prompt):
         response = data["message"]
+        #print(response)
         #print(data["conversation_id"], data["parent_id"], data["message"])
 
     if response[0] == "Y":
@@ -764,6 +765,11 @@ class TwitterBot:
         self.update_remote_cursor(TwitterBot.notification_all_form["cursor"])
 
     def block_user(self, user_id):
+        try:
+            int(user_id)
+        except:
+            user_id = self.id_from_screen_name(user_id)
+            
         url = TwitterBot.urls["block_url"]
         block_form = {"user_id": str(user_id)}
         r = self._session.post(url, headers=self._headers, params=block_form)
@@ -773,6 +779,11 @@ class TwitterBot:
         print(r.status_code, r.text)
 
     def unblock_user(self, user_id):
+        try:
+            int(user_id)
+        except:
+            user_id = self.id_from_screen_name(user_id)
+            
         url = TwitterBot.urls["unblock_url"]
         unblock_form = {"user_id": str(user_id)}
         r = self._session.post(url, headers=self._headers, params=unblock_form)
@@ -1021,11 +1032,17 @@ class TwitterBot:
             form["variables"]["cursor"] = bottom_cursor
 
     def id_from_screen_name(self, screen_name):
+        """
+        Gets the numerical user id given the user handle.
+        """
         x = sntwitter.TwitterUserScraper(screen_name)
         userdata = x._get_entity()
         return userdata.id
 
     def get_tweets_replies(self, user_id):
+        """
+        Gets the texts from the user's tweets and replies tab.
+        """
         try:
             int(user_id)
         except:
@@ -1136,7 +1153,6 @@ if __name__ == "__main__":
     bot.update_local_cursor("DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFgwhLgACwACAAAAC0FZWlliaFJQdHpNCAADjyMIvwAA")
     try:
         # use a small query to test the validity of cookies
-        bot.refresh_cookies()
         bot.get_badge_count()
     except:
         bot.refresh_cookies()
@@ -1144,41 +1160,43 @@ if __name__ == "__main__":
     bot.get_notifications()
 
     count = 0
-    # bot.get_retweeters("https://twitter.com/Anaimiya/status/1628281803407790080")
+    #bot.get_retweeters("https://twitter.com/Anaimiya/status/1628281803407790080")
     # bot.get_followers(44196397)
-    for x in bot.get_followers(44196397):
+    for x in bot.get_followers("WOMEN4China"):
         count += 1
         # if count % 100 == 0:
         #    print(count)
         # match = re.search(r"[a-zA-Z]{7}[0-9]{8}", x.screen_name)
-        if "us" in x.name or True:
+        if x.days_since_registration<100:
             print(
                 f"{x.screen_name:<16} following: {x.following_count:>9} follower: {x.followers_count:>9} media: {x.media_count:>8} tweet_per_day: {x.tweet_count / (x.days_since_registration + 0.05):>8.4f}"
             )
 
-        if count == 10:
-            break
+        #if count == 10:
+        #    break
 
     count = 0
     
-    for x in bot.get_tweets_replies("rapist86009197"):
-        try:
-            print(chatgpt_moderation(x))
-        except:
-            continue
+    #for x in bot.get_tweets_replies("rapist86009197"):
+    #    try:
+    #        print(chatgpt_moderation(x))
+    #    except:
+    #        print("cannot moderate")
+    #        continue
 
     # bot.reporter.report_user("KarenLoomis17", "GovBot", user_id = 1605874400816816128)
-    bot.reporter.report_user(
-        "rapist86009197",
-        "SexualHarassment",
-        user_id=1631332912120438796,
-        context_msg="this person has been harrasing me for months. most of its previous accounts are suspended, this is the latest one. its user name wishes me death",
-    )
+    #bot.reporter.report_user(
+    #    "rapist86009197",
+    #    "SexualHarassment",
+    #    user_id=1631332912120438796,
+    #    context_msg="this person has been harrasing me for months. most of its previous accounts are suspended, this is the latest one. its user name wishes me death",
+    #)
+    #媒体污蔑中国在英设有秘密警察局
+    #ThisispureslanderthatChinahasestablishedasecretpolicedepartmentinEngland
+    bot.reporter.report_propaganda_hashtag(
+        "媒体污蔑中国在英设有秘密警察局", "GovBot",
+        context_msg="this account is part of a coordinated campaingn from chinese government, it uses hashtags that are exclusively used by chinese state sponsored bots",
+     )
 
-    # bot.reporter.report_propaganda_hashtag(
-    #    "ThisispureslanderthatChinahasestablishedasecretpolicedepartmentinEngland",
-    #    context_msg="this account is part of a coordinated campaingn from chinese government, it uses hashtags that are exclusively used by chinese state sponsored bots",
-    # )
-
-    # bot.block_user('44196397') #https://twitter.com/elonmusk (for test)
-    # print(TwitterBot.notification_all_form["cursor"], bot.latest_sortindex)
+    #bot.block_user('44196397') #https://twitter.com/elonmusk (for test)
+     #print(TwitterBot.notification_all_form["cursor"], bot.latest_sortindex)

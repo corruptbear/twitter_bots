@@ -34,7 +34,7 @@ def gen_report_flow_id():
 
 
 class ReportHandler:
-    report_get_token_form = {
+    report_get_token_payload = {
         "input_flow_data": {
             "flow_context": {
                 "debug_overrides": {},
@@ -92,7 +92,7 @@ class ReportHandler:
 
     intro_payload = {"subtask_inputs": [{"subtask_id": "introduction", "cta": {"link": "Other"}}]}
 
-    single_choice_payload = {
+    choices_payload = {
         "subtask_inputs": [
             {
                 "subtask_id": "single-selection",
@@ -157,8 +157,8 @@ class ReportHandler:
         self._session = session
         self._headers["Content-Type"] = "application/json"
 
-    def get_flow_token(self, screen_name, user_id):
-        form = ReportHandler.report_get_token_form
+    def _get_flow_token(self, screen_name, user_id):
+        form = ReportHandler.report_get_token_payload
 
         # if user id is not provided
         if user_id == None:
@@ -194,7 +194,7 @@ class ReportHandler:
 
         self.flow_token = r.json()["flow_token"]
 
-    def handle_intro(self):
+    def _handle_intro(self):
         intro_payload = ReportHandler.intro_payload
         intro_payload["flow_token"] = self.flow_token
 
@@ -210,17 +210,23 @@ class ReportHandler:
             [s["id"] for s in response["subtasks"][0]["choice_selection"]["choices"]],
         )
 
-    def handle_choices(self, choices):
+    def _handle_choices(self, choices):
         # make choices
-        single_choice_payload = ReportHandler.single_choice_payload
+        choices_payload = ReportHandler.choices_payload
 
         print("choices:", choices)
-        single_choice_payload["subtask_inputs"][0]["choice_selection"]["selected_choices"] = choices
-        single_choice_payload["flow_token"] = self.flow_token
+        choices_payload["subtask_inputs"][0]["choice_selection"]["selected_choices"] = choices
+        choices_payload["flow_token"] = self.flow_token
+        
+        if  len(choices)==1:
+            choices_payload["subtask_inputs"][0]["subtask_id"]="single-selection"
+        elif len(choices)>1:
+            choices_payload["subtask_inputs"][0]["subtask_id"]="multi-selection"
+
         r = self._session.post(
             "https://api.twitter.com/1.1/report/flow.json",
             headers=self._headers,
-            data=json.dumps(single_choice_payload),
+            data=json.dumps(choices_payload),
         )
         response = r.json()
         self.flow_token = response["flow_token"]
@@ -233,7 +239,7 @@ class ReportHandler:
         else:
             print([s["subtask_id"] for s in response["subtasks"]])
 
-    def handle_diagnosis(self):
+    def _handle_diagnosis(self):
         diagnosis_payload = ReportHandler.diagnosis_payload
         diagnosis_payload["flow_token"] = self.flow_token
         r = self._session.post(
@@ -249,7 +255,7 @@ class ReportHandler:
         else:
             print(r.status_code, "validation click failed")
 
-    def handle_review_and_submit(self, context_text):
+    def _handle_review_and_submit(self, context_text):
         review_submit_payload = ReportHandler.review_submit_payload
         review_submit_payload["flow_token"] = self.flow_token
         review_submit_payload["subtask_inputs"][1]["enter_text"]["text"] = context_text
@@ -269,7 +275,7 @@ class ReportHandler:
             print(review_submit_payload)
             print(r.text)
 
-    def handle_completion(self):
+    def _handle_completion(self):
         completion_payload = ReportHandler.completion_payload
         completion_payload["flow_token"] = self.flow_token
         r = self._session.post(
@@ -286,17 +292,27 @@ class ReportHandler:
             print(r.status_code)
             
     def report_user(self,screen_name, option_name, user_id=None, context_msg=None):
+        """
+        Report a single twitter user.
+        
+        Parameters:
+        screen_name (str): the twitter handle of the user to be reported.
+        option_name (str): a short string specifying the reporting options.
+        user_id (int): the numeric twitter id associated with screen_name.
+        context_msg (str): additional context message.
+        """
+        
         print("report abusive user")
         options = ReportHandler.options[option_name]["options"]
         
-        self.get_flow_token(screen_name, user_id)
+        self._get_flow_token(screen_name, user_id)
 
-        self.handle_intro()
+        self._handle_intro()
         
         for choice in options:
-            self.handle_choices(choice)
+            self._handle_choices(choice)
 
-        self.handle_diagnosis()
+        self._handle_diagnosis()
 
         if context_msg is not None:
             context_text = context_msg
@@ -304,10 +320,18 @@ class ReportHandler:
             # use default context text of the presets
             context_text = ReportHandler.options[option_name]["context_text"]
 
-        self.handle_review_and_submit(context_text)
-        self.handle_completion()
+        self._handle_review_and_submit(context_text)
+        self._handle_completion()
         
-    def report_propaganda_hashtag(self, hashtag, context_msg=None):
+    def report_propaganda_hashtag(self, hashtag, option_name, context_msg=None):
+        """
+        Report all users tweeting a certain hashtag in the same way.
+        
+        Parameters:
+        hashtag (str): the hashtag to be reported, not including the '#' symbol.
+        option_name (str): a short string specifying the reporting options.
+        context_msg (str): additional context message.
+        """
         x = sntwitter.TwitterHashtagScraper(hashtag)
         
         # report rate too high will make you black_listed
@@ -318,18 +342,21 @@ class ReportHandler:
 
         for item in x.get_items():
             content = json.loads(item.json())
+            user_id = content["user"]["id"]
             screen_name = content["user"]["username"]
-            
+            created_at = content["user"]["created"]
+            posted_at = content['date']
+ 
             #skip user already reported
             if screen_name in abuser_list:
+                print(f"Skipped: {screen_name:<16} {user_id} user created at:{created_at} posted at:{posted_at}")
                 continue
-
-            user_id = content["user"]["id"]
+          
             abuser_list[screen_name] = user_id
-            print(count, screen_name, user_id)
+            print(f"{count:<5} {screen_name:<16} {user_id} user created at:{created_at} posted at:{posted_at}")
             count += 1
             
-            self.report_user(screen_name, "GovBot", user_id=user_id, context_msg=context_msg)
+            self.report_user(screen_name, option_name, user_id=user_id, context_msg=context_msg)
          
             # minimum sleep time to avoid triggering rate limit related errors
             sleep(8)

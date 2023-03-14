@@ -135,6 +135,17 @@ class EvalComparisonOp:
 
 
 def rule_eval(rule, vars_):
+    """
+    Evalute a logical expression with arithmatics and comparisons.
+    
+    Parameters:
+    rule (str): a string representing
+    vars_ (dict): a dictionary containing the names and the values of variables
+    
+    Returns:
+    boolean: evaluation result.
+    """
+    
     variable = CaselessLiteral("followers_count") | CaselessLiteral("following_count") | CaselessLiteral("tweet_count") \
     | CaselessLiteral("default_profile_image") \
     | CaselessLiteral("days") | CaselessLiteral("tweet_count") | Word(alphas, exact=1)
