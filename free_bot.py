@@ -1164,18 +1164,25 @@ if __name__ == "__main__":
     # bot.get_followers(44196397)
     for x in bot.get_followers("WOMEN4China"):
         count += 1
-        # if count % 100 == 0:
-        #    print(count)
         # match = re.search(r"[a-zA-Z]{7}[0-9]{8}", x.screen_name)
         if x.days_since_registration<100:
             print(
                 f"{x.screen_name:<16} following: {x.following_count:>9} follower: {x.followers_count:>9} media: {x.media_count:>8} tweet_per_day: {x.tweet_count / (x.days_since_registration + 0.05):>8.4f}"
             )
 
-        #if count == 10:
-        #    break
-
-    count = 0
+        if count == 10:
+            break
+    
+    PHRASES_PATH = os.path.join(pwd, "phrases.yaml")
+    phrase_book = load_yaml(PHRASES_PATH)
+    phrases = phrase_book["phrases"]
+    hashtags = phrase_book["hashtags"]
+    
+    for x in phrases:
+        bot.reporter.report_search(x['phrase'], x['option'], context_msg = x["context_msg"])
+        
+    for x in hashtags:
+        bot.reporter.report_propaganda_hashtag(x['hashtag'], x['option'], context_msg = x["context_msg"])
     
     #for x in bot.get_tweets_replies("rapist86009197"):
     #    try:
@@ -1191,12 +1198,6 @@ if __name__ == "__main__":
     #    user_id=1631332912120438796,
     #    context_msg="this person has been harrasing me for months. most of its previous accounts are suspended, this is the latest one. its user name wishes me death",
     #)
-    #媒体污蔑中国在英设有秘密警察局
-    #ThisispureslanderthatChinahasestablishedasecretpolicedepartmentinEngland
-    bot.reporter.report_propaganda_hashtag(
-        "媒体污蔑中国在英设有秘密警察局", "GovBot",
-        context_msg="this account is part of a coordinated campaingn from chinese government, it uses hashtags that are exclusively used by chinese state sponsored bots",
-     )
-
+    
     #bot.block_user('44196397') #https://twitter.com/elonmusk (for test)
      #print(TwitterBot.notification_all_form["cursor"], bot.latest_sortindex)

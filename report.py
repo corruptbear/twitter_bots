@@ -323,24 +323,14 @@ class ReportHandler:
         self._handle_review_and_submit(context_text)
         self._handle_completion()
         
-    def report_propaganda_hashtag(self, hashtag, option_name, context_msg=None):
-        """
-        Report all users tweeting a certain hashtag in the same way.
-        
-        Parameters:
-        hashtag (str): the hashtag to be reported, not including the '#' symbol.
-        option_name (str): a short string specifying the reporting options.
-        context_msg (str): additional context message.
-        """
-        x = sntwitter.TwitterHashtagScraper(hashtag)
-        
+    def _report_generator(self, items, option_name, context_msg=None):
         # report rate too high will make you black_listed
         count = 0
         
         # only report once
         abuser_list = {}
 
-        for item in x.get_items():
+        for item in items.get_items():
             content = json.loads(item.json())
             user_id = content["user"]["id"]
             screen_name = content["user"]["username"]
@@ -360,3 +350,22 @@ class ReportHandler:
          
             # minimum sleep time to avoid triggering rate limit related errors
             sleep(8)
+        
+    def report_search(self, phrase, option_name, context_msg=None):
+        x = sntwitter.TwitterSearchScraper(phrase)
+        self._report_generator(x, option_name, context_msg)
+        
+        
+    def report_propaganda_hashtag(self, hashtag, option_name, context_msg=None):
+        """
+        Report all users tweeting a certain hashtag in the same way.
+        
+        Parameters:
+        hashtag (str): the hashtag to be reported, not including the '#' symbol.
+        option_name (str): a short string specifying the reporting options.
+        context_msg (str): additional context message.
+        """
+        x = sntwitter.TwitterHashtagScraper(hashtag)
+        self._report_generator(x, option_name, context_msg)
+        
+       
