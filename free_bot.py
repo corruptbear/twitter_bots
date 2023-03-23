@@ -20,7 +20,8 @@ import re
 import secrets
 import copy
 
-from selenium_bot import SeleniumTwitterBot, save_yaml, load_yaml
+from selenium_bot import SeleniumTwitterBot
+from utils import save_yaml, load_yaml
 from rule_parser import rule_eval
 from report import ReportHandler
 
@@ -37,7 +38,7 @@ def chatgpt_moderation(sentence):
     # https://chat.openai.com/api/auth/session
     chatbot = Chatbot(
         config={
-            "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik1UaEVOVUpHTkVNMVFURTRNMEZCTWpkQ05UZzVNRFUxUlRVd1FVSkRNRU13UmtGRVFrRXpSZyJ9.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL3Byb2ZpbGUiOnsiZW1haWwiOiJ3YXdueDcxNkBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiZ2VvaXBfY291bnRyeSI6IlVTIn0sImh0dHBzOi8vYXBpLm9wZW5haS5jb20vYXV0aCI6eyJ1c2VyX2lkIjoidXNlci00VU9DZGFhSGR3N2pob3p3Y3Z5c2VlT3EifSwiaXNzIjoiaHR0cHM6Ly9hdXRoMC5vcGVuYWkuY29tLyIsInN1YiI6Imdvb2dsZS1vYXV0aDJ8MTA0MTIzMjI3OTA5NjQ3MzI3NzUxIiwiYXVkIjpbImh0dHBzOi8vYXBpLm9wZW5haS5jb20vdjEiLCJodHRwczovL29wZW5haS5vcGVuYWkuYXV0aDBhcHAuY29tL3VzZXJpbmZvIl0sImlhdCI6MTY3NzkwNzI1MiwiZXhwIjoxNjc5MTE2ODUyLCJhenAiOiJUZEpJY2JlMTZXb1RIdE45NW55eXdoNUU0eU9vNkl0RyIsInNjb3BlIjoib3BlbmlkIHByb2ZpbGUgZW1haWwgbW9kZWwucmVhZCBtb2RlbC5yZXF1ZXN0IG9yZ2FuaXphdGlvbi5yZWFkIG9mZmxpbmVfYWNjZXNzIn0.jOZ_ngatdKhT_9-HPWwXbWX4j4a0lwR36KS5H_ZIhNwyBt5Nkh9I-0WfCx32TkWvNY1ZfMivIja3yYKs84KeNdPp4I4s-FEWuCRutj3D1iMvVBkyYiKgXghtGBLPv4qzrRTf0J2AbI0QxvaQgokZxJkpZRGPE8jeOboy5UgDUcQbUkNy06GSM26TKMFUGfY9EPpL72m-p1Fg9vsYVe9UqaN5wt_mqaG8GxySgKFXWFGmn11a-ThG4-PJEyDt4_pJNk1PdGJakwmwW_0qvZ3WlCaeNXTWESfE57B2aZezwdtke4cgtcnkRq-xJRh2EEkYcgsZDuKcRDVPGv92FB4fpA"
+            "access_token": ""
         }
     )
     
@@ -792,7 +793,7 @@ class TwitterBot:
         display_msg("unblock")
         print(r.status_code, r.text)
 
-    def handle_users(self, users):
+    def judge_users(self, users):
         """
         Examine users coming from the notifications one by one.
         Block bad users. Update the local block list.
@@ -897,9 +898,9 @@ class TwitterBot:
         print("instruction keys:", [x.keys() for x in instructions])
 
         # get entries
-        for x in instructions:
-            if x.addEntries:
-                entries = x.addEntries.entries  # intries is a list
+        for instruction in instructions:
+            if instruction.addEntries:
+                entries = instruction.addEntries.entries  # intries is a list
 
         # get cursor entries
         cursor_entries = [x for x in entries if x.content.operation]
@@ -913,19 +914,19 @@ class TwitterBot:
 
         display_msg("timeline: non_cursor_notification")
         # users_liked_your_tweet/user_liked_multiple_tweets/user_liked_tweets_about_you/generic_login_notification/generic_report_received/users_retweeted_your_tweet
-        for x in non_cursor_notification_entries:
-            print(x.sortIndex, x.content.item.clientEventInfo.element)
+        for entry in non_cursor_notification_entries:
+            print(entry.sortIndex, entry.content.item.clientEventInfo.element)
 
         display_msg("timeline: non_cursor_tweets")
         # user_replied_to_your_tweet/user_quoted_your_tweet
-        for x in non_cursor_tweet_entries:
-            print(x.sortIndex, x.content.item.clientEventInfo.element)
-            entry_user_id = id_indexed_tweets[int(x.content.item.content.tweet.id)].user_id
+        for entry in non_cursor_tweet_entries:
+            print(entry.sortIndex, entry.content.item.clientEventInfo.element)
+            entry_user_id = id_indexed_tweets[int(entry.content.item.content.tweet.id)].user_id
             # add the users replying to me
             interacting_users[entry_user_id] = logged_users[entry_user_id]
 
         display_msg("check users interacting with me")
-        self.handle_users(interacting_users)
+        self.judge_users(interacting_users)
 
         print("\ntweets VS non_cursor_entries", len(tweets), len(non_cursor_entries))
         print(
@@ -936,11 +937,11 @@ class TwitterBot:
         print("number of convos", len(convo))
 
         display_msg("cursors")
-        for x in cursor_entries:
-            cursor = x.content.operation.cursor
-            print(x.sortIndex, cursor)
+        for entry in cursor_entries:
+            cursor = entry.content.operation.cursor
+            print(entry.sortIndex, cursor)
             if cursor.cursorType == "Top":
-                self.latest_sortindex = x.sortIndex
+                self.latest_sortindex = entry.sortIndex
 
                 self.update_local_cursor(cursor.value)
                 # self.update_remote_latest_cursor()  # will cause the badge to disappear
@@ -1131,73 +1132,4 @@ class TwitterBot:
 
 
 if __name__ == "__main__":
-    pwd = os.path.dirname(os.path.realpath(__file__))
-
-    COOKIE_PATH = os.path.join(pwd, "sl_cookies.pkl")
-    CONFIG_PATH = os.path.join(pwd, "apifree.yaml")
-
-    WHITE_LIST_PATH = os.path.join(pwd, "white_list.yaml")
-    BLOCK_LIST_PATH = os.path.join(pwd, "block_list.yaml")
-    API_CONF_PATH = os.path.join(pwd, "conf.yaml")
-
-    filtering_rule = load_yaml(API_CONF_PATH)["filtering_rule"]
-
-    bot = TwitterBot(
-        cookie_path=COOKIE_PATH,
-        config_path=CONFIG_PATH,
-        white_list_path=WHITE_LIST_PATH,
-        block_list_path=BLOCK_LIST_PATH,
-        filtering_rule=filtering_rule,
-    )
-
-    bot.update_local_cursor("DAABDAABCgABAAAAABZfed0IAAIAAAABCAADYinMQAgABFgwhLgACwACAAAAC0FZWlliaFJQdHpNCAADjyMIvwAA")
-    try:
-        # use a small query to test the validity of cookies
-        bot.get_badge_count()
-    except:
-        bot.refresh_cookies()
-
-    bot.get_notifications()
-
-    count = 0
-    #bot.get_retweeters("https://twitter.com/Anaimiya/status/1628281803407790080")
-    # bot.get_followers(44196397)
-    for x in bot.get_followers("WOMEN4China"):
-        count += 1
-        # match = re.search(r"[a-zA-Z]{7}[0-9]{8}", x.screen_name)
-        if x.days_since_registration<100:
-            print(
-                f"{x.screen_name:<16} following: {x.following_count:>9} follower: {x.followers_count:>9} media: {x.media_count:>8} tweet_per_day: {x.tweet_count / (x.days_since_registration + 0.05):>8.4f}"
-            )
-
-        if count == 10:
-            break
-    
-    PHRASES_PATH = os.path.join(pwd, "phrases.yaml")
-    phrase_book = load_yaml(PHRASES_PATH)
-    phrases = phrase_book["phrases"]
-    hashtags = phrase_book["hashtags"]
-    
-    for x in phrases:
-        bot.reporter.report_search(x['phrase'], x['option'], context_msg = x["context_msg"])
-        
-    for x in hashtags:
-        bot.reporter.report_propaganda_hashtag(x['hashtag'], x['option'], context_msg = x["context_msg"])
-    
-    #for x in bot.get_tweets_replies("rapist86009197"):
-    #    try:
-    #        print(chatgpt_moderation(x))
-    #    except:
-    #        print("cannot moderate")
-    #        continue
-
-    # bot.reporter.report_user("KarenLoomis17", "GovBot", user_id = 1605874400816816128)
-    #bot.reporter.report_user(
-    #    "rapist86009197",
-    #    "SexualHarassment",
-    #    user_id=1631332912120438796,
-    #    context_msg="this person has been harrasing me for months. most of its previous accounts are suspended, this is the latest one. its user name wishes me death",
-    #)
-    
-    #bot.block_user('44196397') #https://twitter.com/elonmusk (for test)
-     #print(TwitterBot.notification_all_form["cursor"], bot.latest_sortindex)
+    pass

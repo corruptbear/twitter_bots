@@ -332,11 +332,32 @@ class ReportHandler:
 
         for item in items.get_items():
             content = json.loads(item.json())
+                       
+            #'followersCount': 0, 'friendsCount': 0, 'statusesCount': 5, 'favouritesCount': 0, 'mediaCount': 4
             user_id = content["user"]["id"]
             screen_name = content["user"]["username"]
             created_at = content["user"]["created"]
+            
+            #tweet information
+            text_raw = content['rawContent']
+            post_id = content['id']
             posted_at = content['date']
- 
+            source = content['sourceLabel']
+            #tweet statistics
+            view_count = content['viewCount']
+            reply_count = content['replyCount']
+            retweet_count = content['retweetCount']
+            like_count = content["likeCount"]
+            quote_count = content["quoteCount"]
+            #related entities
+            retweeted_tweet = content["retweetedTweet"]
+            quoted_tweet = content["quotedTweet"]
+            in_reply_to_tweet_id = content["inReplyToTweetId"]
+            in_reply_to_user = content["inReplyToUser"]
+            
+            #if (retweeted_tweet is not None) or (quoted_tweet is not None) or (in_reply_to_tweet_id is not None) or (mentioned_users is not None):
+            #    print(content) 
+            
             #skip user already reported
             if screen_name in abuser_list:
                 print(f"Skipped: {screen_name:<16} {user_id} user created at:{created_at} posted at:{posted_at}")
@@ -351,12 +372,12 @@ class ReportHandler:
             # minimum sleep time to avoid triggering rate limit related errors
             sleep(8)
         
-    def report_search(self, phrase, option_name, context_msg=None):
+    def report_accounts_from_search(self, phrase, option_name, context_msg=None):
         x = sntwitter.TwitterSearchScraper(phrase)
         self._report_generator(x, option_name, context_msg)
         
         
-    def report_propaganda_hashtag(self, hashtag, option_name, context_msg=None):
+    def report_accounts_from_hashtag(self, hashtag, option_name, context_msg=None):
         """
         Report all users tweeting a certain hashtag in the same way.
         

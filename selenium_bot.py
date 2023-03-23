@@ -24,25 +24,9 @@ import random
 import pickle
 import time
 import traceback
-import yaml
 
 from datetime import datetime, timezone
-
-
-def save_yaml(dictionary, filepath, write_mode):
-    with open(filepath, write_mode) as f:
-        yaml.dump(dictionary, f)
-
-
-def load_yaml(filepath):
-    # yaml_path = os.path.join(pwd, filepath)
-    try:
-        with open(filepath, "r") as stream:
-            dictionary = yaml.safe_load(stream)
-            return dictionary
-    except:
-        traceback.print_exc()
-        return None
+from utils import save_yaml, load_yaml
 
 
 class SeleniumTwitterBot:

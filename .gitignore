@@ -3,5 +3,7 @@
 *.lock
 *.pkl
 white_list.csv
+bot_scripts.py
 **/__pycache__/
 **/venv/
+**/db/
