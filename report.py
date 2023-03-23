@@ -192,7 +192,8 @@ class ReportHandler:
             data=json.dumps(form),
         )
 
-        self.flow_token = r.json()["flow_token"]
+        if r.status_code == 200:
+            self.flow_token = r.json()["flow_token"]
 
     def _handle_intro(self):
         intro_payload = ReportHandler.intro_payload

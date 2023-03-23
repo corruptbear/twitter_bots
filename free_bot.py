@@ -980,21 +980,31 @@ class TwitterBot:
                     # otherwise the typename is UserUnavailable
                     print("cannot get user data", e.entryId)
                     
-    def _text_from_entries(self,entries):
+    def _text_from_entries(self,entries,user_id):
         for e in entries:
             content = e.content
+
             if content.entryType == "TimelineTimelineModule":
                 for i in content.items:
                     result = i.item.itemContent.tweet_results.result
-                    if result.__typename == "Tweet":
-                        yield result.legacy.full_text
-                    if result.__typename == "TweetWithVisibilityResults":
-                        pass
-                        
+                    if result:
+                        if result.__typename == "Tweet":
+                            #other user's post in a conversation is also returned; needs filtering here
+                            if int(result.core.user_results.result.rest_id)==user_id:
+                                print(result.source)
+                                yield result.legacy.full_text
+                        if result.__typename == "TweetWithVisibilityResults":
+                            print(result)
+                       
             elif content.entryType == "TimelineTimelineItem":
                 #print(content.itemContent.tweet_results.result.legacy.keys())
-                yield content.itemContent.tweet_results.result.legacy.full_text
-               
+                result = content.itemContent.tweet_results.result
+                if result:
+                    if result.__typename == "Tweet":
+                        print(result.source,result.legacy.created_at)
+                        yield content.itemContent.tweet_results.result.legacy.full_text
+                    if result.__typename == "TweetWithVisibilityResults":
+                        print(result)
 
     def _json_headers(self):
         headers = copy.deepcopy(self._headers)
@@ -1038,7 +1048,7 @@ class TwitterBot:
         """
         x = sntwitter.TwitterUserScraper(screen_name)
         userdata = x._get_entity()
-        return userdata.id
+        return int(userdata.id)
 
     def get_tweets_replies(self, user_id):
         """
@@ -1057,7 +1067,7 @@ class TwitterBot:
         form["variables"]["userId"] = str(user_id)
         
         for entries in self._navigate_graphql_entries(url, headers, form):
-            yield from self._text_from_entries(entries)
+            yield from self._text_from_entries(entries,user_id)
 
     def get_following(self, user_id):
         """
