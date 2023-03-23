@@ -991,10 +991,11 @@ class TwitterBot:
                         if result.__typename == "Tweet":
                             #other user's post in a conversation is also returned; needs filtering here
                             if int(result.core.user_results.result.rest_id)==user_id:
-                                print(result.source)
+                                print(result.source,result.legacy.created_at)
                                 yield result.legacy.full_text
                         if result.__typename == "TweetWithVisibilityResults":
-                            print(result)
+                            print(result.tweet.source,result.tweet.legacy.created_at)
+                            yield result.tweet.legacy.full_text
                        
             elif content.entryType == "TimelineTimelineItem":
                 #print(content.itemContent.tweet_results.result.legacy.keys())
@@ -1002,9 +1003,10 @@ class TwitterBot:
                 if result:
                     if result.__typename == "Tweet":
                         print(result.source,result.legacy.created_at)
-                        yield content.itemContent.tweet_results.result.legacy.full_text
+                        yield result.legacy.full_text
                     if result.__typename == "TweetWithVisibilityResults":
-                        print(result)
+                        print(result.tweet.source,result.tweet.legacy.created_at)
+                        yield result.tweet.legacy.full_text
 
     def _json_headers(self):
         headers = copy.deepcopy(self._headers)

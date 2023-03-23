@@ -3,11 +3,15 @@
 import re
 import json
 import secrets
-
+from enum import Enum
 from time import sleep
+import copy
 
 import snscrape.modules.twitter as sntwitter
 
+class _ReportType(Enum):
+    PROFILE = 1
+    TWEET = 2
 
 def gen_report_flow_id():
     """
@@ -34,6 +38,21 @@ def gen_report_flow_id():
 
 
 class ReportHandler:
+    
+    report_tweet_get_token_input_flow_data = {
+        "requested_variant": '{"client_app_id":"3033300","client_location":"tweet::tweet","client_referer":"/AliciaGuffey19/status/1635812523919265792","is_media":false,"is_promoted":false,"report_flow_id":"079eaf8e-1ee4-4594-bb0f-eb654402dca1","reported_tweet_id":"1635812523919265792","reported_user_id":"1628849065722097665","source":"reporttweet"}',
+        "flow_context": {
+          "debug_overrides": {},
+          "start_location": {
+            "location": "tweet",
+            "tweet": {
+              "tweet_id": "1635812523919265792"
+            }
+          }
+        }
+      }
+      
+    
     report_get_token_payload = {
         "input_flow_data": {
             "flow_context": {
@@ -156,19 +175,19 @@ class ReportHandler:
         self._headers = headers
         self._session = session
         self._headers["Content-Type"] = "application/json"
-
-    def _get_flow_token(self, screen_name, user_id):
-        form = ReportHandler.report_get_token_payload
-
-        # if user id is not provided
-        if user_id == None:
-            print("query to get user id...")
-            x = sntwitter.TwitterUserScraper(screen_name)
-            userdata = x._get_entity()
-            user_id = userdata.id
+        
+    def _prepare_report_profile_form(self, screen_name, user_id):
+        form = copy.deepcopy(ReportHandler.report_get_token_payload)
 
         s = form["input_flow_data"]["requested_variant"]
+        
+        s_json = json.loads(s)
+        s_json["report_flow_id"]=gen_report_flow_id()
+        s_json["reported_user_id"]=str(user_id)
+        s_json["client_referer"]="/"+screen_name
+        s = json.dumps(s_json)
 
+        """
         # replace report_flow_id using newly generated uuid
         match = re.search(r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}", s)
         old_uuid = match.group(0)
@@ -183,9 +202,49 @@ class ReportHandler:
         match = re.search(r'"client_referer":"\/([a-zA-Z0-9_]+)"', s)
         old_screen_name = match.group(1)
         s = s.replace(old_screen_name, screen_name)
-
+        """
+        
         form["input_flow_data"]["requested_variant"] = s
+        form["input_flow_data"]["flow_context"]["start_location"]["profile"]["profile_id"] = str(user_id)
+        return form
+        
+    def _prepare_report_tweet_form(self, screen_name, user_id, tweet_id):
+        form = copy.deepcopy(ReportHandler.report_get_token_payload)
+        form["input_flow_data"] = copy.deepcopy(ReportHandler.report_tweet_get_token_input_flow_data)
+        
+        s = form["input_flow_data"]["requested_variant"]
+        s_json = json.loads(s)
+        s_json["report_flow_id"]=gen_report_flow_id()
+        s_json["reported_user_id"]=str(user_id)
+        s_json["reported_tweet_id"]=str(tweet_id)
+        s_json["client_referer"]=f"/{screen_name}/status/{tweet_id}"
+        s = json.dumps(s_json)
+        
+        form["input_flow_data"]["requested_variant"] = s
+        form["input_flow_data"]["flow_context"]["start_location"]["tweet"]["tweet_id"] = str(tweet_id)
+    
+        return form        
 
+    def _get_flow_token(self, report_type, screen_name = None, user_id = None, tweet_id = None):
+        # if user id is not provided
+        if screen_name is not None and user_id is None:
+            print("query to get user id...")
+            x = sntwitter.TwitterUserScraper(screen_name)
+            userdata = x._get_entity()
+            user_id = userdata.id
+        # if only tweet_id is available
+        if screen_name is None and user_id is None and tweet_id is not None:
+            print("getting info from tweet...")
+            x = sntwitter.TwitterTweetScraper(tweet_id)
+            content = json.loads(list(x.get_items())[0].json())
+            user_id = content["user"]["id"]
+            screen_name = content["user"]["username"]
+           
+        if report_type==_ReportType.PROFILE or report_type==_ReportType.PROFILE.value:
+            form = self._prepare_report_profile_form(screen_name, user_id)
+        if report_type==_ReportType.TWEET or report_type==_ReportType.TWEET.value:
+            form = self._prepare_report_tweet_form(screen_name, user_id, tweet_id)    
+        
         r = self._session.post(
             "https://api.twitter.com/1.1/report/flow.json?flow_name=report-flow",
             headers=self._headers,
@@ -292,7 +351,8 @@ class ReportHandler:
         else:
             print(r.status_code)
             
-    def report_user(self,screen_name, option_name, user_id=None, context_msg=None):
+        
+    def report(self, option_name, report_type, user_id=None, screen_name = None, tweet_id=None, context_msg=None):
         """
         Report a single twitter user.
         
@@ -303,10 +363,10 @@ class ReportHandler:
         context_msg (str): additional context message.
         """
         
-        print("report abusive user")
+        print(report_type)
         options = ReportHandler.options[option_name]["options"]
         
-        self._get_flow_token(screen_name, user_id)
+        self._get_flow_token(report_type, screen_name = screen_name, user_id = user_id, tweet_id = tweet_id)
 
         self._handle_intro()
         
@@ -355,9 +415,7 @@ class ReportHandler:
             quoted_tweet = content["quotedTweet"]
             in_reply_to_tweet_id = content["inReplyToTweetId"]
             in_reply_to_user = content["inReplyToUser"]
-            
-            #if (retweeted_tweet is not None) or (quoted_tweet is not None) or (in_reply_to_tweet_id is not None) or (mentioned_users is not None):
-            #    print(content) 
+        
             
             #skip user already reported
             if screen_name in abuser_list:
@@ -368,7 +426,7 @@ class ReportHandler:
             print(f"{count:<5} {screen_name:<16} {user_id} user created at:{created_at} posted at:{posted_at}")
             count += 1
             
-            self.report_user(screen_name, option_name, user_id=user_id, context_msg=context_msg)
+            self.report(option_name, _ReportType.PROFILE, user_id=user_id, screen_name = screen_name, tweet_id = post_id, context_msg=context_msg)
          
             # minimum sleep time to avoid triggering rate limit related errors
             sleep(8)

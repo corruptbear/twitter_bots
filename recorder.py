@@ -9,8 +9,7 @@ import snscrape.modules.twitter as sntwitter
 
 
 class Recorder:
-    def __init__(self, query):
-        self._query = query
+    def __init__(self):
         self._create_db()
 
     def _create_table(self, create_table_sql):
@@ -20,6 +19,11 @@ class Recorder:
             print(e)
 
     def _create_db(self):
+        """
+        Connet to the database.
+        Initialize the connection and the cursor.
+        Create tables if not exist.
+        """
         path = "db/record.db"
         scriptdir = os.path.dirname(__file__)
         db_path = os.path.join(scriptdir, path)
@@ -50,15 +54,13 @@ class Recorder:
         self._create_table(create_users_table_sql)
         self._create_table(create_posts_table_sql)
 
-    def search_and_record(self):
-        results = sntwitter.TwitterSearchScraper(self._query)
-        self.record(results)
-
-    def record(self, results):
+    def record(self, query):
         """
         Collect results incrementally
         """
-        self._cursor.execute("SELECT rowid, latest_result_date from queries WHERE query = (?)", (self._query,))
+        results = sntwitter.TwitterSearchScraper(query)
+        
+        self._cursor.execute("SELECT rowid, latest_result_date from queries WHERE query = (?)", (query,))
         self.conn.commit()
 
         query_record = self._cursor.fetchall()
@@ -68,7 +70,7 @@ class Recorder:
             latest_result_date = query_record[0][1]
         else:
             latest_result_date = "1970-01-01T00:00:00+00:00"
-            self._cursor.execute("INSERT INTO queries VALUES (?,?)", (self._query, "1970-01-01T00:00:00+00:00"))
+            self._cursor.execute("INSERT INTO queries VALUES (?,?)", (query, "1970-01-01T00:00:00+00:00"))
 
         recorded_latest_timestamp = sns_timestamp_to_utc_datetime(latest_result_date)
 
@@ -102,7 +104,7 @@ class Recorder:
                 if timestamp > recorded_latest_timestamp:
                     print("new data seen!")
                     self._cursor.execute(
-                        "UPDATE queries SET latest_result_date=? WHERE query=?", (posted_at, self._query)
+                        "UPDATE queries SET latest_result_date=? WHERE query=?", (posted_at, query)
                     )
 
             # compare the current timestamp with the recorded latest timestamp
@@ -142,9 +144,10 @@ class Recorder:
                     False,
                 ),
             )
-            
+
             self._cursor.execute(
-                "UPDATE posts SET reply_count=?, retweet_count=?, like_count=?, quote_count=?, view_count=? WHERE post_id=?", (reply_count, retweet_count, like_count, quote_count, view_count, post_id)
+                "UPDATE posts SET reply_count=?, retweet_count=?, like_count=?, quote_count=?, view_count=? WHERE post_id=?",
+                (reply_count, retweet_count, like_count, quote_count, view_count, post_id),
             )
             self._cursor.execute(
                 "INSERT OR IGNORE INTO posts VALUES (?,?,?,?,?,?,?,?,?,?,?)",
@@ -158,14 +161,13 @@ class Recorder:
                     like_count,
                     quote_count,
                     view_count,
-                    self._query,
+                    query,
                     text_raw,
                 ),
             )
             self.conn.commit()
 
             count += 1
-            
 
     def check(self):
         q = self._cursor.execute("SELECT * from queries")
