@@ -3,6 +3,7 @@
 import yaml
 import traceback
 from datetime import datetime, timezone
+import snscrape.modules.twitter as sntwitter
 
 def save_yaml(dictionary, filepath, write_mode):
     with open(filepath, write_mode) as f:
@@ -21,3 +22,12 @@ def load_yaml(filepath):
         
 def sns_timestamp_to_utc_datetime(timestamp):
     return datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=timezone.utc)
+    
+    
+def id_from_screen_name(screen_name):
+    """
+    Gets the numerical user id given the user handle.
+    """
+    x = sntwitter.TwitterUserScraper(screen_name)
+    userdata = x._get_entity()
+    return int(userdata.id)

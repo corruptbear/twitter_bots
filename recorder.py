@@ -3,7 +3,7 @@
 import os
 import json
 import sqlite3
-from utils import sns_timestamp_to_utc_datetime
+from utils import *
 
 import snscrape.modules.twitter as sntwitter
 
@@ -168,18 +168,29 @@ class Recorder:
             self.conn.commit()
 
             count += 1
+    
+    def delete_user(self, screen_name):       
+        #delete associated posts first
+        account_id = id_from_screen_name(screen_name)
+        self._cursor.execute("DELETE from posts where account_id in (SELECT account_id FROM posts JOIN users ON (posts.account_id=users.user_id) WHERE users.screen_name=?)",(screen_name,))
+        #self._cursor.execute("DELETE from posts where account_id=?",(account_id,))
+        #then delete from the users table
+        self._cursor.execute("DELETE from users where screen_name=?",(screen_name,))
+        
+        print(f"{screen_name} deleted from the tables!")
+        self.conn.commit()
 
     def check(self):
-        q = self._cursor.execute("SELECT * from queries")
+        self._cursor.execute("SELECT * from queries")
         for x in self._cursor.fetchall():
             print(dict(x))
 
-        q = self._cursor.execute("SELECT * from users")
+        self._cursor.execute("SELECT * from users")
         for x in self._cursor.fetchall():
             print(dict(x))
 
-        # q = self._cursor.execute("SELECT * FROM posts")
-        # q = self._cursor.execute("SELECT * FROM posts WHERE created_at BETWEEN '2023-01-01' AND '2023-03-01'")
-        q = self._cursor.execute("SELECT * FROM posts WHERE source NOT LIKE '%Twitter Web App%'")
+        #self._cursor.execute("SELECT * FROM posts")
+        #self._cursor.execute("SELECT * FROM posts WHERE created_at BETWEEN '2023-01-01' AND '2023-03-01'")
+        self._cursor.execute("SELECT * FROM posts WHERE source NOT LIKE '%Twitter Web App%'")
         for x in self._cursor.fetchall():
             print(dict(x))

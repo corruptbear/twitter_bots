@@ -21,7 +21,7 @@ import secrets
 import copy
 
 from selenium_bot import SeleniumTwitterBot
-from utils import save_yaml, load_yaml
+from utils import *
 from rule_parser import rule_eval
 from report import ReportHandler
 
@@ -176,7 +176,6 @@ class TwitterUserProfile:
             created_time = datetime.strptime(self.created_at, "%a %b %d %H:%M:%S +0000 %Y").replace(tzinfo=timezone.utc).astimezone(tz.gettz())
             time_diff = current_time - created_time
             self.days_since_registration = time_diff.days
-
 
 class TwitterLoginBot:
     def __init__(self, email, password, screenname, phonenumber, cookie_path=None):
@@ -769,7 +768,7 @@ class TwitterBot:
         try:
             int(user_id)
         except:
-            user_id = self.id_from_screen_name(user_id)
+            user_id = id_from_screen_name(user_id)
             
         url = TwitterBot.urls["block_url"]
         block_form = {"user_id": str(user_id)}
@@ -783,7 +782,7 @@ class TwitterBot:
         try:
             int(user_id)
         except:
-            user_id = self.id_from_screen_name(user_id)
+            user_id = id_from_screen_name(user_id)
             
         url = TwitterBot.urls["unblock_url"]
         unblock_form = {"user_id": str(user_id)}
@@ -1044,14 +1043,6 @@ class TwitterBot:
             bottom_cursor = self._cursor_from_entries(entries)
             form["variables"]["cursor"] = bottom_cursor
 
-    def id_from_screen_name(self, screen_name):
-        """
-        Gets the numerical user id given the user handle.
-        """
-        x = sntwitter.TwitterUserScraper(screen_name)
-        userdata = x._get_entity()
-        return int(userdata.id)
-
     def get_tweets_replies(self, user_id):
         """
         Gets the texts from the user's tweets and replies tab.
@@ -1059,7 +1050,7 @@ class TwitterBot:
         try:
             int(user_id)
         except:
-            user_id = self.id_from_screen_name(user_id)
+            user_id = id_from_screen_name(user_id)
             
         headers = self._json_headers()
         url = TwitterBot.urls["tweets_replies_url"]
@@ -1079,7 +1070,7 @@ class TwitterBot:
         try:
             int(user_id)
         except:
-            user_id = self.id_from_screen_name(user_id)
+            user_id = id_from_screen_name(user_id)
 
         display_msg("get following")
 
@@ -1103,7 +1094,7 @@ class TwitterBot:
         try:
             int(user_id)
         except:
-            user_id = self.id_from_screen_name(user_id)
+            user_id = id_from_screen_name(user_id)
 
         display_msg("get followers")
 
