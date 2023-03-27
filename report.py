@@ -6,7 +6,7 @@ import secrets
 from enum import Enum
 from time import sleep
 import copy
-
+from utils import *
 import snscrape.modules.twitter as sntwitter
 
 class _ReportType(Enum):
@@ -229,9 +229,7 @@ class ReportHandler:
         # if user id is not provided
         if screen_name is not None and user_id is None:
             print("query to get user id...")
-            x = sntwitter.TwitterUserScraper(screen_name)
-            userdata = x._get_entity()
-            user_id = userdata.id
+            user_id = id_from_screen_name(screen_name)
         # if only tweet_id is available
         if screen_name is None and user_id is None and tweet_id is not None:
             print("getting info from tweet...")

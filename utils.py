@@ -31,3 +31,12 @@ def id_from_screen_name(screen_name):
     x = sntwitter.TwitterUserScraper(screen_name)
     userdata = x._get_entity()
     return int(userdata.id)
+
+def numerical_id(user_id):
+    try:
+        int_user_id = int(user_id)
+    except:
+        int_user_id = id_from_screen_name(user_id)
+        
+    return int_user_id
+    
