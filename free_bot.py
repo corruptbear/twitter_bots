@@ -56,10 +56,6 @@ def chatgpt_moderation(sentence):
         return False
 
 
-def display_msg(msg):
-    print(f"\n{msg:.>50}")
-
-
 def display_session_cookies(s):
     display_msg("print cookies")
     for x in s.cookies:
@@ -605,8 +601,7 @@ class TwitterBot:
             "features": standard_graphql_features,
         }
 
-    def __init__(self, cookie_path=None, config_path=None, white_list_path=None, block_list_path=None, filtering_rule=None):
-        self._headers = {
+    default_headers = {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:110.0) Gecko/20100101 Firefox/110.0",
             "Accept": "*/*",
             "Accept-Language": "en-US,en;q=0.5",
@@ -628,6 +623,9 @@ class TwitterBot:
             "Connection": "keep-alive",
             "TE": "trailers",
         }
+
+    def __init__(self, cookie_path=None, config_path=None, white_list_path=None, block_list_path=None, filtering_rule=None):
+        self._headers = copy.deepcopy(TwitterBot.default_headers)
 
         self._session = requests.Session()
 
@@ -1101,8 +1099,8 @@ class TwitterBot:
         for entries in self._navigate_graphql_entries(url, headers, form):
             yield from self._users_from_entries(entries)
             
-            
-    def status_by_rest_id(self,user_id):
+    @staticmethod
+    def status_by_rest_id(user_id):
         """
         Probe the status of an account.
         """
@@ -1110,7 +1108,7 @@ class TwitterBot:
         #TODO: no need to get a tmp session each time
         tmp_session = requests.Session()
         
-        tmp_headers = copy.deepcopy(self._headers)
+        tmp_headers = copy.deepcopy(TwitterBot.default_headers)
         
         del tmp_headers["x-csrf-token"]
         del tmp_headers["x-twitter-auth-type"]
@@ -1149,8 +1147,9 @@ class TwitterBot:
         if result.__typename=="User":
             if result.legacy.protected:
                 return "protected"
-            else:
-                return "normal"
+            if result.legacy.profile_interstitial_type == "fake_account":
+                return "fake_account"
+            return "normal"
         
         if result.__typename=='UserUnavailable':
             if 'suspends' in result.unavailable_message.text:

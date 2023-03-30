@@ -5,6 +5,9 @@ import traceback
 from datetime import datetime, timezone
 import snscrape.modules.twitter as sntwitter
 
+def display_msg(msg):
+    print(f"\n{msg:.>50}")
+
 def save_yaml(dictionary, filepath, write_mode):
     with open(filepath, write_mode) as f:
         yaml.dump(dictionary, f)

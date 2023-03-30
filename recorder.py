@@ -4,6 +4,7 @@ import os
 import json
 import sqlite3
 from utils import *
+from free_bot import TwitterBot
 
 import snscrape.modules.twitter as sntwitter
 
@@ -168,7 +169,7 @@ class Recorder:
             self.conn.commit()
 
             count += 1
-    
+
     def delete_user(self, screen_name):       
         #delete associated posts first
         account_id = id_from_screen_name(screen_name)
@@ -185,12 +186,38 @@ class Recorder:
         for x in self._cursor.fetchall():
             print(dict(x))
 
-        self._cursor.execute("SELECT * from users")
-        for x in self._cursor.fetchall():
-            print(dict(x))
+        #self._cursor.execute("SELECT * from users")
+        #for x in self._cursor.fetchall():
+        #    print(dict(x))
 
         #self._cursor.execute("SELECT * FROM posts")
         #self._cursor.execute("SELECT * FROM posts WHERE created_at BETWEEN '2023-01-01' AND '2023-03-01'")
         self._cursor.execute("SELECT * FROM posts WHERE source NOT LIKE '%Twitter Web App%'")
         for x in self._cursor.fetchall():
             print(dict(x))
+
+    def check_status(self):
+        #TODO: fix the status_by_rest_id
+        display_msg("check status now")
+        self._cursor.execute("SELECT COUNT(*) from users")
+        for x in self._cursor.fetchall():
+            print('all users:',dict(x))
+        self._cursor.execute("SELECT COUNT(*) from users WHERE users.suspended=1")
+        for x in self._cursor.fetchall():
+            print('suspended users:',dict(x))
+        self._cursor.execute("SELECT COUNT(*) from posts")
+        for x in self._cursor.fetchall():
+            print('all posts:',dict(x))
+
+        #examine the status of exiting accounts
+        self._cursor.execute("SELECT users.user_id, users.screen_name, posts.created_at FROM (users JOIN posts ON users.last_seen_post_id = posts.post_id) WHERE users.suspended=0 ORDER BY posts.created_at")
+        for user in self._cursor.fetchall():
+            user_id = dict(user)["user_id"]
+            screen_name = dict(user)["screen_name"]
+            last_posted = dict(user)['created_at']
+            status = TwitterBot.status_by_rest_id(user_id)
+            print(f"{user_id:<20} {screen_name:<16} {last_posted} {status}")
+
+            if status=="suspended":
+                self._cursor.execute("UPDATE users SET suspended=1 WHERE user_id=?",(user_id,))
+            self.conn.commit()

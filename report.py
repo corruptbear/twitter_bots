@@ -51,8 +51,8 @@ class ReportHandler:
           }
         }
       }
-      
-    
+
+
     report_get_token_payload = {
         "input_flow_data": {
             "flow_context": {
@@ -124,7 +124,7 @@ class ReportHandler:
             }
         ]
     }
-    
+
     diagnosis_payload = {
         "subtask_inputs": [
             {
@@ -207,7 +207,7 @@ class ReportHandler:
         form["input_flow_data"]["requested_variant"] = s
         form["input_flow_data"]["flow_context"]["start_location"]["profile"]["profile_id"] = str(user_id)
         return form
-        
+
     def _prepare_report_tweet_form(self, screen_name, user_id, tweet_id):
         form = copy.deepcopy(ReportHandler.report_get_token_payload)
         form["input_flow_data"] = copy.deepcopy(ReportHandler.report_tweet_get_token_input_flow_data)
@@ -348,9 +348,9 @@ class ReportHandler:
             print("successfully completed!")
         else:
             print(r.status_code)
-            
-        
-    def report(self, option_name, report_type, user_id=None, screen_name = None, tweet_id=None, context_msg=None):
+
+
+    def _report(self, option_name, report_type, user_id=None, screen_name = None, tweet_id=None, context_msg=None):
         """
         Report a single twitter user.
         
@@ -360,7 +360,7 @@ class ReportHandler:
         user_id (int): the numeric twitter id associated with screen_name.
         context_msg (str): additional context message.
         """
-        
+
         print(report_type)
         options = ReportHandler.options[option_name]["options"]
         
@@ -381,11 +381,19 @@ class ReportHandler:
 
         self._handle_review_and_submit(context_text)
         self._handle_completion()
+
+    def report_user(self, option_name, user_id=None, screen_name=None, context_msg=None):
+
+        self._report(option_name, _ReportType.PROFILE, user_id=user_id, screen_name=screen_name, context_msg=context_msg)
+
+    def report_tweet(self, option_name, user_id=None, screen_name=None,tweet_id=None, context_msg=None):
         
+        self._report(option_name, _ReportType.TWEET, user_id=user_id, screen_name=screen_name, tweet_id=tweet_id, context_msg=context_msg)
+
     def _report_generator(self, items, option_name, context_msg=None):
         # report rate too high will make you black_listed
         count = 0
-        
+
         # only report once
         abuser_list = {}
 
@@ -413,8 +421,7 @@ class ReportHandler:
             quoted_tweet = content["quotedTweet"]
             in_reply_to_tweet_id = content["inReplyToTweetId"]
             in_reply_to_user = content["inReplyToUser"]
-        
-            
+
             #skip user already reported
             if screen_name in abuser_list:
                 print(f"Skipped: {screen_name:<16} {user_id} user created at:{created_at} posted at:{posted_at}")
@@ -424,16 +431,18 @@ class ReportHandler:
             print(f"{count:<5} {screen_name:<16} {user_id} user created at:{created_at} posted at:{posted_at}")
             count += 1
             
-            self.report(option_name, _ReportType.PROFILE, user_id=user_id, screen_name = screen_name, tweet_id = post_id, context_msg=context_msg)
+            self.report_user(option_name, user_id=user_id, screen_name = screen_name, context_msg=context_msg)
+            #self.report_tweet(option_name,user_id=user_id, screen_name=screen_name, tweet_id=post_id, context_msg=context_msg )
          
             # minimum sleep time to avoid triggering rate limit related errors
             sleep(8)
-        
+
     def report_accounts_from_search(self, phrase, option_name, context_msg=None):
+        display_msg("report accounts from search term")
         x = sntwitter.TwitterSearchScraper(phrase)
         self._report_generator(x, option_name, context_msg)
-        
-        
+
+
     def report_accounts_from_hashtag(self, hashtag, option_name, context_msg=None):
         """
         Report all users tweeting a certain hashtag in the same way.
@@ -443,7 +452,7 @@ class ReportHandler:
         option_name (str): a short string specifying the reporting options.
         context_msg (str): additional context message.
         """
+        display_msg("report accounts from hashtag")
+
         x = sntwitter.TwitterHashtagScraper(hashtag)
         self._report_generator(x, option_name, context_msg)
-        
-       
