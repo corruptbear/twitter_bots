@@ -97,12 +97,14 @@ secrets:
 logic expression describing bad accounts
 
 - logic operators:  `not` `and` `or`  
+- arithmatic operators: `+` `-` `*` `/`
 - comparison operators:  `>` `<` `>=` `<=` `==` `!=`
 - keywords: `followers_count ` `following_count`  `tweet_count` `days`  
 
 Example
 ```
 "(followers_count <= 5 and following_count <= 5) or (days <= 180)"
+"(followers_count <= 10 and following_count <= 10) or (days <= 360) or ((followers_count/(tweet_count + 1) > 20) and tweet_count < 100)"
 ```
 
 ## Cron scheduling setup

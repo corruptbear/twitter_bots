@@ -67,7 +67,7 @@ class EvalAddOp:
             if op == "-":
                 s -= val.eval()
         return s
-                    
+
 class EvalAndOp:
     "Class to evaluate and"
 
@@ -79,8 +79,7 @@ class EvalAndOp:
         for op, val in operatorOperands(self.value[1:]):
             c = c and val.eval()
         return c
-        
-        
+
 class EvalOrOp:
     "Class to evaluate or"
 
@@ -92,7 +91,7 @@ class EvalOrOp:
         for op, val in operatorOperands(self.value[1:]):
             c = c or val.eval()
         return c
-        
+
 
 class EvalNotOp:
     "Class to evaluate not"
@@ -104,7 +103,7 @@ class EvalNotOp:
     def eval(self):
         return not self.value.eval()
 
-            
+
 class EvalComparisonOp:
     "Class to evaluate comparison expressions"
     opMap = {
@@ -119,7 +118,7 @@ class EvalComparisonOp:
 
     def __init__(self, tokens):
         self.value = tokens[0]
-        
+
     def eval(self):
         val1 = self.value[0].eval()
         for op, val in operatorOperands(self.value[1:]):
@@ -145,7 +144,7 @@ def rule_eval(rule, vars_):
     Returns:
     boolean: evaluation result.
     """
-    
+
     variable = CaselessLiteral("followers_count") | CaselessLiteral("following_count") | CaselessLiteral("tweet_count") \
     | CaselessLiteral("default_profile_image") \
     | CaselessLiteral("days") | CaselessLiteral("tweet_count") | Word(alphas, exact=1)
@@ -156,8 +155,8 @@ def rule_eval(rule, vars_):
     orop = CaselessLiteral("or") | Literal("||") | Literal("|")
     multop = one_of("* /")
     plusop = one_of("+ -")
-    
-    
+
+
     #use the EvalOperand class to parse constants and variables
     operand.set_parse_action(EvalOperand)
     
@@ -168,7 +167,7 @@ def rule_eval(rule, vars_):
             (plusop, 2, opAssoc.LEFT, EvalAddOp),
         ],
     )
-    
+
     #define comparison expression
     comparison_op = one_of("> < >= <= == = !=")
     comp_expr = infixNotation(
@@ -177,7 +176,7 @@ def rule_eval(rule, vars_):
             (comparison_op, 2, opAssoc.LEFT, EvalComparisonOp),
         ],
     )
-    
+
     #define logic expression
     logic_expr = infixNotation(
         comp_expr | CaselessLiteral('True') | CaselessLiteral('False'),
@@ -187,13 +186,13 @@ def rule_eval(rule, vars_):
             (orop, 2, opAssoc.LEFT,EvalOrOp),
         ],
     )
-    
+
     #pass variables to variable eval
     EvalOperand.vars_ = vars_
     
     return logic_expr.parse_string(rule)[0].eval()
-    
-    
+
+
 def default_tests():  
     vars_ = {
         "A": 0,
@@ -222,8 +221,8 @@ def default_tests():
     for t in exprs:
         t_orig = t
         tests.append((t_orig, eval(t, vars_)))
-    
-    
+
+
     failed = 0
     for test, expected in tests:
         parsedvalue = rule_eval(test,vars_)
