@@ -117,9 +117,6 @@ class ReportHandler:
                 "subtask_id": "single-selection",
                 "choice_selection": {
                     "link": "next_link",
-                    "selected_choices": [
-                        "EveryoneOnTwitterOption"
-                    ],  # TargetingMeOption, ZazuTargetingSomeoneElseOrGroupOption
                 },
             }
         ]
@@ -161,14 +158,20 @@ class ReportHandler:
 
     options = {
         "GovBot": {
-            "options": [["EveryoneOnTwitterOption"], ["SpammedOption"], ["UsingMultipleAccountsOption"]],
+            "options": [["SpammedOption"], ["UsingMultipleAccountsOption"]],
             "context_text": "this account is part of a coordinated campaingn from chinese government",
         },
-        
+
         "SexualHarassment":{
-            "options": [["TargetingMeOption"], ["HarassedOrViolenceOption"], ["InsultingOption"], ["IdentityGenderOption","IdentitySexualOrientation"]],
+            "options": [["HarassedOrViolenceOption"], ["InsultingOption"], ["IdentityGenderOption","IdentitySexualOrientation"]],
             "context_text": "this person has been harrasing me for months. most of its previous accounts are suspended, this is the latest one."
+        },
+
+        "WishingHarm":{
+            "options": [["HarassedOrViolenceOption"], ["WishingHarmOption"], [],["ReportedsProfileOption"]],
+            "context_text": "this person has been harrasing me for months, with multiple accounts already suspended. it wishes me death."
         }
+
     }
 
     def __init__(self, headers, session):
@@ -270,22 +273,28 @@ class ReportHandler:
 
     def _handle_choices(self, choices):
         # make choices
-        choices_payload = ReportHandler.choices_payload
+        choices_payload = copy.deepcopy(ReportHandler.choices_payload)
 
         print("choices:", choices)
-        choices_payload["subtask_inputs"][0]["choice_selection"]["selected_choices"] = choices
+        if len(choices)>0:
+            choices_payload["subtask_inputs"][0]["choice_selection"]["selected_choices"] = choices
+
         choices_payload["flow_token"] = self.flow_token
         
         if  len(choices)==1:
             choices_payload["subtask_inputs"][0]["subtask_id"]="single-selection"
         elif len(choices)>1:
             choices_payload["subtask_inputs"][0]["subtask_id"]="multi-selection"
+        elif len(choices)==0:
+            #skipping multi-choice; assumption: only multi-choice allow skipping?
+            choices_payload["subtask_inputs"][0]["subtask_id"]="multi-selection"
+            choices_payload["subtask_inputs"][0]["choice_selection"]["link"]="skip_link"
 
         r = self._session.post(
             "https://api.twitter.com/1.1/report/flow.json",
             headers=self._headers,
             data=json.dumps(choices_payload),
-        )
+            )
         response = r.json()
         self.flow_token = response["flow_token"]
 
@@ -349,8 +358,31 @@ class ReportHandler:
         else:
             print(r.status_code)
 
+    def _handle_target(self, target):
 
-    def _report(self, option_name, report_type, user_id=None, screen_name = None, tweet_id=None, context_msg=None):
+        target_payload = copy.deepcopy(ReportHandler.choices_payload)
+
+        if target=="Me":
+            target_payload["subtask_inputs"][0]["choice_selection"]["selected_choices"] = ["TargetingMeOption"]
+        elif target=="Other":
+            target_payload["subtask_inputs"][0]["choice_selection"]["selected_choices"] = ["ZazuTargetingSomeoneElseOrGroupOption"]
+        elif target=="Everyone":
+            target_payload["subtask_inputs"][0]["choice_selection"]["selected_choices"] = ["EveryoneOnTwitterOption"]
+
+        print("target:",target_payload["subtask_inputs"][0]["choice_selection"]["selected_choices"])
+
+        target_payload["flow_token"] = self.flow_token
+
+        r = self._session.post(
+            "https://api.twitter.com/1.1/report/flow.json",
+            headers=self._headers,
+            data=json.dumps(target_payload),
+        )
+        print(r.status_code)
+        response = r.json()
+        self.flow_token = response["flow_token"]
+
+    def _report(self, option_name, report_type, target=None, user_id=None, screen_name = None, tweet_id=None, context_msg=None):
         """
         Report a single twitter user.
         
@@ -363,11 +395,13 @@ class ReportHandler:
 
         print(report_type)
         options = ReportHandler.options[option_name]["options"]
-        
+
         self._get_flow_token(report_type, screen_name = screen_name, user_id = user_id, tweet_id = tweet_id)
 
         self._handle_intro()
-        
+
+        self._handle_target(target)
+
         for choice in options:
             self._handle_choices(choice)
 
@@ -382,13 +416,13 @@ class ReportHandler:
         self._handle_review_and_submit(context_text)
         self._handle_completion()
 
-    def report_user(self, option_name, user_id=None, screen_name=None, context_msg=None):
+    def report_user(self, option_name, target="Me", user_id=None, screen_name=None, context_msg=None):
 
-        self._report(option_name, _ReportType.PROFILE, user_id=user_id, screen_name=screen_name, context_msg=context_msg)
+        self._report(option_name, _ReportType.PROFILE, target=target, user_id=user_id, screen_name=screen_name, context_msg=context_msg)
 
-    def report_tweet(self, option_name, user_id=None, screen_name=None,tweet_id=None, context_msg=None):
+    def report_tweet(self, option_name, target="Me", user_id=None, screen_name=None,tweet_id=None, context_msg=None):
         
-        self._report(option_name, _ReportType.TWEET, user_id=user_id, screen_name=screen_name, tweet_id=tweet_id, context_msg=context_msg)
+        self._report(option_name, _ReportType.TWEET, target=target, user_id=user_id, screen_name=screen_name, tweet_id=tweet_id, context_msg=context_msg)
 
     def _report_generator(self, items, option_name, context_msg=None):
         # report rate too high will make you black_listed
@@ -431,28 +465,30 @@ class ReportHandler:
             print(f"{count:<5} {screen_name:<16} {user_id} user created at:{created_at} posted at:{posted_at}")
             count += 1
             
-            self.report_user(option_name, user_id=user_id, screen_name = screen_name, context_msg=context_msg)
-            #self.report_tweet(option_name,user_id=user_id, screen_name=screen_name, tweet_id=post_id, context_msg=context_msg )
-         
+            self.report_user(option_name, target=self._target, user_id=user_id, screen_name = screen_name, context_msg=context_msg)
+            #self.report_tweet(option_name, target=self._target, user_id=user_id, screen_name=screen_name, tweet_id=post_id, context_msg=context_msg )
+
             # minimum sleep time to avoid triggering rate limit related errors
             sleep(8)
 
-    def report_accounts_from_search(self, phrase, option_name, context_msg=None):
+    def report_accounts_from_search(self, phrase, option_name, target="Everyone", context_msg=None):
         display_msg("report accounts from search term")
+        self._target = target
         x = sntwitter.TwitterSearchScraper(phrase)
         self._report_generator(x, option_name, context_msg)
 
 
-    def report_accounts_from_hashtag(self, hashtag, option_name, context_msg=None):
+    def report_accounts_from_hashtag(self, hashtag, option_name, target="Everyone", context_msg=None):
         """
         Report all users tweeting a certain hashtag in the same way.
         
         Parameters:
         hashtag (str): the hashtag to be reported, not including the '#' symbol.
         option_name (str): a short string specifying the reporting options.
+        target (str): who is the report for. Default to 'Everyone'.
         context_msg (str): additional context message.
         """
         display_msg("report accounts from hashtag")
-
+        self._target = target
         x = sntwitter.TwitterHashtagScraper(hashtag)
         self._report_generator(x, option_name, context_msg)
