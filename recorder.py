@@ -192,7 +192,7 @@ class Recorder:
 
         #self._cursor.execute("SELECT * FROM posts")
         #self._cursor.execute("SELECT * FROM posts WHERE created_at BETWEEN '2023-01-01' AND '2023-03-01'")
-        self._cursor.execute("SELECT * FROM posts WHERE source NOT LIKE '%Twitter Web App%'")
+        self._cursor.execute("SELECT * FROM posts JOIN users ON (posts.account_id=users.user_id) WHERE source NOT LIKE '%Twitter Web App%' AND users.suspended=0")
         for x in self._cursor.fetchall():
             print(dict(x))
 

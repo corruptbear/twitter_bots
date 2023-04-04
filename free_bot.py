@@ -172,6 +172,12 @@ class TwitterUserProfile:
             created_time = datetime.strptime(self.created_at, "%a %b %d %H:%M:%S +0000 %Y").replace(tzinfo=timezone.utc).astimezone(tz.gettz())
             time_diff = current_time - created_time
             self.days_since_registration = time_diff.days
+            
+@dataclasses.dataclass
+class Tweet:
+    created_at: str = dataclasses.field(default=None)
+    source: str = dataclasses.field(default=None)
+    text: str = dataclasses.field(default=None)
 
 class TwitterLoginBot:
     def __init__(self, email, password, screenname, phonenumber, cookie_path=None):
@@ -836,10 +842,8 @@ class TwitterBot:
                     favourites_count=user.favourites_count,
                     name=user.name,
                 )
-                print(dataclasses.asdict(p))
+                #print(dataclasses.asdict(p))
                 logged_users[p.user_id] = p
-
-                # logged_users[user.id] = user #need to modify oracle
 
         display_msg("globalObjects['tweets]")
         id_indexed_tweets = {}
@@ -848,21 +852,24 @@ class TwitterBot:
             tweets = result.globalObjects.tweets
             for tweet in tweets.values():
                 id_indexed_tweets[int(tweet.id)] = tweet
-                print("convo id:", tweet.conversation_id)
+                #print("convo id:", tweet.conversation_id)
                 convo.add(tweet.conversation_id)
-                print(tweet.user_id, tweet.created_at, tweet.full_text)
+                #print(tweet.user_id, tweet.created_at, tweet.full_text)
 
         interacting_users = {}
+        entryid_notification_users = {}
 
         display_msg("globalObjects['notifications']")
         if result.globalObjects.notifications:
             notifications = result.globalObjects.notifications
+            #userid and sortindex available; but not interaction type
             for notification in notifications.values():
-                # print(notification.message.text)
+                #print(notification)
+                #print(notification.message.text)
                 for e in notification.message.entities:
                     entry_user_id = int(e.ref.user.id)
                     # add the users appearing in notifications (do not include replies)
-                    interacting_users[entry_user_id] = logged_users[entry_user_id]
+                    entryid_notification_users[notification.id]=entry_user_id
 
         display_msg("timeline")
         print("TIMELINE ID", result.timeline.id)
@@ -887,20 +894,31 @@ class TwitterBot:
         non_cursor_tweet_entries = [x for x in non_cursor_entries if x.content.item.content.tweet]
 
         display_msg("timeline: non_cursor_notification")
-        # users_liked_your_tweet/user_liked_multiple_tweets/user_liked_tweets_about_you/generic_login_notification/generic_report_received/users_retweeted_your_tweet
+        # users_liked_your_tweet/user_liked_multiple_tweets/user_liked_tweets_about_you/generic_login_notification/generic_report_received/users_retweeted_your_tweet ; no userid is included in these entries
         for entry in non_cursor_notification_entries:
-            print(entry.sortIndex, entry.content.item.clientEventInfo.element)
+            #print(entry)
+            if entry.content.item.clientEventInfo.element not in ['generic_login_notification','generic_report_received']:
+                entry_id = entry.entryId[13:]
+                entry_user_id = entryid_notification_users[entry_id]
+                print(entry.sortIndex, entry.content.item.clientEventInfo.element, entry_user_id)
+                interacting_users[entry_id] = {'sort_index':entry.sortIndex,'user_id':entry_user_id, 'user':logged_users[entry_user_id], 'event_type':entry.content.item.clientEventInfo.element}
 
         display_msg("timeline: non_cursor_tweets")
         # user_replied_to_your_tweet/user_quoted_your_tweet
         for entry in non_cursor_tweet_entries:
-            print(entry.sortIndex, entry.content.item.clientEventInfo.element)
+            entry_id = entry.entryId[13:]
             entry_user_id = id_indexed_tweets[int(entry.content.item.content.tweet.id)].user_id
+            print(entry.sortIndex, entry.content.item.clientEventInfo.element, entry_user_id)
             # add the users replying to me
-            interacting_users[entry_user_id] = logged_users[entry_user_id]
+            interacting_users[entry_id] = {'sort_index':entry.sortIndex,'user_id':entry_user_id,'user':logged_users[entry_user_id],'event_type':entry.content.item.clientEventInfo.element}
 
-        display_msg("check users interacting with me")
-        self.judge_users(interacting_users)
+        display_msg("all interactions")
+        #sort by time from latest to earliest
+        for x in sorted(interacting_users.items(), key=lambda item: item[1]['sort_index'],reverse=True):
+            print(x[1]['user'].screen_name,x[1]['event_type'])
+        
+        display_msg("check users interacting with me")    
+        self.judge_users({interacting_users[entry_id]['user_id']:interacting_users[entry_id]['user'] for entry_id in interacting_users})
 
         print("\ntweets VS non_cursor_entries", len(tweets), len(non_cursor_entries))
         print(
@@ -965,22 +983,29 @@ class TwitterBot:
                         if result.__typename == "Tweet":
                             #other user's post in a conversation is also returned; needs filtering here
                             if int(result.core.user_results.result.rest_id)==user_id:
-                                print(result.source,result.legacy.created_at)
-                                yield result.legacy.full_text
+                                tweet = Tweet(created_at = result.legacy.created_at, source = result.source, text = result.legacy.full_text)
+                                yield tweet
                         if result.__typename == "TweetWithVisibilityResults":
-                            print(result.tweet.source,result.tweet.legacy.created_at)
-                            yield result.tweet.legacy.full_text
-                       
+                            try:
+                                tweet = Tweet(created_at = result.tweet.legacy.created_at, source = result.tweet.source, text = result.tweet.legacy.full_text)
+                            except:
+                                print('2,!!!!!!!!!!!!!!!!!!')
+                                print(result)
+                            yield tweet
             elif content.entryType == "TimelineTimelineItem":
                 #print(content.itemContent.tweet_results.result.legacy.keys())
                 result = content.itemContent.tweet_results.result
                 if result:
                     if result.__typename == "Tweet":
-                        print(result.source,result.legacy.created_at)
-                        yield result.legacy.full_text
+                        tweet = Tweet(created_at = result.legacy.created_at, source = result.source, text = result.legacy.full_text)
+                        yield tweet
                     if result.__typename == "TweetWithVisibilityResults":
-                        print(result.tweet.source,result.tweet.legacy.created_at)
-                        yield result.tweet.legacy.full_text
+                        try:
+                            tweet = Tweet(created_at = result.legacy.created_at, source = result.source, text = result.legacy.full_text)
+                        except:
+                            print('4,!!!!!!!!!!!!!!!!!!')
+                            print(result)
+                        yield tweet
 
     def _json_headers(self):
         headers = copy.deepcopy(self._headers)
