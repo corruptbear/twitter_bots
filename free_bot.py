@@ -177,6 +177,7 @@ class TwitterUserProfile:
 @dataclasses.dataclass
 class Tweet:
     tweet_id: int
+    tweet_type: str = dataclasses.field(default=None)
     created_at: str = dataclasses.field(default=None)
     source: str = dataclasses.field(default=None)
     text: str = dataclasses.field(default=None)
@@ -993,6 +994,19 @@ class TwitterBot:
                     # otherwise the typename is UserUnavailable
                     print("cannot get user data", e.entryId)
                     
+    def _tweet_type(self, in_reply_to_screen_name, is_quote_status, retweeted):
+        if in_reply_to_screen_name is not None:
+            if is_quote_status:
+                return "reply_by_quote"
+            else:
+                return "reply"
+        else:
+            if is_quote_status:
+                return "quote"
+            if retweeted:
+                return "retweeted"
+            return "original"
+        
     def _text_from_entries(self,entries,user_id):
         for e in entries:
             content = e.content
@@ -1004,11 +1018,13 @@ class TwitterBot:
                         if result.__typename == "Tweet":
                             #other user's post in a conversation is also returned; needs filtering here
                             if int(result.core.user_results.result.rest_id)==user_id:
-                                tweet = Tweet(result.rest_id, created_at = result.legacy.created_at, source = result.source, text = result.legacy.full_text)
+                                tweet_type = self._tweet_type(result.legacy.in_reply_to_screen_name,result.legacy.is_quote_status,result.legacy.retweeted)
+                                tweet = Tweet(result.rest_id, tweet_type = tweet_type, created_at = result.legacy.created_at, source = result.source, text = result.legacy.full_text)
                                 yield tweet
                         if result.__typename == "TweetWithVisibilityResults":
                             try:
-                                tweet = Tweet(result.tweet.rest_id,created_at = result.tweet.legacy.created_at, source = result.tweet.source, text = result.tweet.legacy.full_text)
+                                tweet_type = self._tweet_type(result.tweet.legacy.in_reply_to_screen_name,result.tweet.legacy.is_quote_status,result.tweet.legacy.retweeted)
+                                tweet = Tweet(result.tweet.rest_id, tweet_type = tweet_type, created_at = result.tweet.legacy.created_at, source = result.tweet.source, text = result.tweet.legacy.full_text)
                             except:
                                 traceback.print_exc()
                                 print(result)
@@ -1017,11 +1033,13 @@ class TwitterBot:
                 result = content.itemContent.tweet_results.result
                 if result:
                     if result.__typename == "Tweet":
-                        tweet = Tweet(result.rest_id, created_at = result.legacy.created_at, source = result.source, text = result.legacy.full_text)
+                        tweet_type = self._tweet_type(result.legacy.in_reply_to_screen_name,result.legacy.is_quote_status,result.legacy.retweeted)
+                        tweet = Tweet(result.rest_id, tweet_type = tweet_type, created_at = result.legacy.created_at, source = result.source, text = result.legacy.full_text)
                         yield tweet
                     if result.__typename == "TweetWithVisibilityResults":
                         try:
-                            tweet = Tweet(result.tweet.rest_id, created_at = result.tweet.legacy.created_at, source = result.tweet.source, text = result.tweet.legacy.full_text)
+                            tweet_type = self._tweet_type(result.tweet.legacy.in_reply_to_screen_name,result.tweet.legacy.is_quote_status,result.tweet.legacy.retweeted)
+                            tweet = Tweet(result.tweet.rest_id, tweet_type = tweet_type, created_at = result.tweet.legacy.created_at, source = result.tweet.source, text = result.tweet.legacy.full_text)
                         except:
                             traceback.print_exc()
                             print(result)
