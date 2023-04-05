@@ -72,6 +72,3 @@ def plot_utc_timestamps_intervals(timestamps, minimum = None, maximum = None):
     
     plt.hist(intervals)
     plt.show()
-    
-    
-    

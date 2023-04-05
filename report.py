@@ -160,6 +160,12 @@ class ReportHandler:
         "GovBot": {
             "options": [["SpammedOption"], ["UsingMultipleAccountsOption"]],
             "context_text": "this account is part of a coordinated campaingn from chinese government",
+        }, 
+        
+        "PoliticalDisinfo":{
+            "options":[["ShownMisleadingInfoOption"],["GeneralMisinformationPoliticsOption"],["GeneralMisinformationPoliticsOtherOption"]],
+            "context_text": "the image of this tweet is exclusively used by the PRC state-sponsored disinfo campaign 'Spamouflage'",
+            
         },
 
         "SexualHarassment":{
