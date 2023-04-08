@@ -159,7 +159,7 @@ class ReportHandler:
     options = {
         "GovBot": {
             "options": [["SpammedOption"], ["UsingMultipleAccountsOption"]],
-            "context_text": "this account is part of a coordinated campaingn from chinese government",
+            "context_text": "this account is part of a coordinated campaingn from the chinese government",
         }, 
         
         "PoliticalDisinfo":{
@@ -175,6 +175,11 @@ class ReportHandler:
 
         "WishingHarm":{
             "options": [["HarassedOrViolenceOption"], ["WishingHarmOption"], [],["ReportedsProfileOption"]],
+            "context_text": "this person has been harrasing me for months, with multiple accounts already suspended. it wishes me death."
+        },
+        
+        "Insulting":{
+            "options": [["HarassedOrViolenceOption"], ["InsultingOption"], []],
             "context_text": "this person has been harrasing me for months, with multiple accounts already suspended. it wishes me death."
         }
 

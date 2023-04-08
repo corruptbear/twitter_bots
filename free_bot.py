@@ -1297,6 +1297,8 @@ class TwitterBot:
     def user_by_screen_name(screen_name):
         tmp_session, tmp_headers = TwitterBot.tmp_session_headers()
         
+        display_msg("get user by screen name")
+        
         url = TwitterBot.urls["user_by_screen_name"]
         form = copy.deepcopy(TwitterBot.tweet_replies_form)
 
@@ -1317,8 +1319,6 @@ class TwitterBot:
     def user_by_id(user_id):
         tmp_session, tmp_headers = TwitterBot.tmp_session_headers()
 
-        user_id = numerical_id(user_id)
-
         display_msg("get user by rest id")
 
         url = TwitterBot.urls["user_by_rest_id"]
@@ -1338,7 +1338,17 @@ class TwitterBot:
             print(r.status_code, r.text)
 
     @staticmethod
-    def status_by_rest_id(user_id):
+    def status_by_screen_name(screen_name):
+        """
+        Probe the status of an account.
+        """
+        values = TwitterBot.user_by_screen_name(screen_name)
+        if values:
+            status, user_profile = values
+            return status
+            
+    @staticmethod
+    def status_by_id(uesr_id):
         """
         Probe the status of an account.
         """
