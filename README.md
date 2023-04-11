@@ -1,5 +1,9 @@
 # twitter_bots
 
+**This repo contains code that uses the Twitter API, which used to be free, but now requires $$$ to access the same functionalities.**
+For an API-free version of this anti-harassement tool, see https://github.com/wsluo/twitter_guard
+
+
 current usage
 - personal anti-harassment bot
 - auto-block accounts interacting with me based on account information
