@@ -2,8 +2,9 @@
 *.log
 *.lock
 *.pkl
+*.txt
 white_list.csv
-bot_scripts.py
+*scripts.py
 **/__pycache__/
 **/venv/
 **/db/
