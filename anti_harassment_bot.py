@@ -130,7 +130,8 @@ if __name__ == '__main__':
     tweets = response.data
     users = response.includes["users"]
     users = {int(user.id):user.username for user in users}
-    
+
+    bad_users = []
     for tweet in tweets:
         #get the user id
         author_id = tweet.author_id
@@ -145,15 +146,7 @@ if __name__ == '__main__':
                 #unknown new account, in neither whitelist nor blocklist
                 is_bad = junk_id_oracle(int(author_id))
                 if is_bad:
-                    # block a user
-                    result = client.block(target_user_id=author_id)
-                    print(f"DOUBLE CHECK: interaction at {local_time} id {author_id} name {users[author_id]} blocked? {result.data['blocking']}")
-                    
-                    if result.data['blocking']:
-                        #update the block list
-                        block_list[author_id] = users[author_id]       
-                        #save the updated block list immediately
-                        save_yaml(block_list,block_list_path,'w')
+                    bad_users.append(author_id)
         else:
             #from friends
             print(f"FRIEND FOUND: interaction at {local_time} id {author_id} name {WHITE_LIST[author_id]} is from the WHITE LIST")
@@ -181,11 +174,7 @@ if __name__ == '__main__':
                                 else:
                                     is_bad = junk_id_oracle(int(user_id))
                                     if is_bad:
-                                        result = client.block(target_user_id=user_id)
-                                        print(f"MISSED FISH!: id {user_id} name {screen_name} blocked? {result.data['blocking']}")
-                                        if result.data['blocking']:
-                                            block_list[user_id] = screen_name
-                                            save_yaml(block_list,block_list_path,'w')
+                                        bad_users.append(user_id)
                             else:
                                 print(f"FRIEND FOUND: id {user_id} name {screen_name} is from the WHITE LIST")
                     #backup the processed hook users  
@@ -194,3 +183,14 @@ if __name__ == '__main__':
             #reset the hook log to blank file
             with open(hook_log_path,'w') as blank_file:
                 pass
+
+    for bad_user in list(set(bad_users)):
+        # block a user
+        result = client.block(target_user_id=bad_user)
+        print(f"BAD: interaction at {local_time} id {bad_user} name {users[bad_user]} blocked? {result.data['blocking']}")
+
+        if result.data['blocking']:
+            #update the block list
+            block_list[bad_user] = users[bad_user]
+            #save the updated block list immediately
+            save_yaml(block_list,block_list_path,'w')

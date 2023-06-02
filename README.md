@@ -1,7 +1,7 @@
 # twitter_bots
 
 **This repo contains code that uses the Twitter API, which used to be free, but now requires $$$ to access the same functionalities.**
-For an API-free version of this anti-harassement tool, see https://github.com/wsluo/twitter_guard
+For an API-free version of this anti-harassement tool, see https://github.com/corruptbear/twitter_guard
 
 
 current usage
@@ -13,7 +13,7 @@ current usage
 ## install
 
 ```bash
-git clone https://github.com/wsluo/twitter_bots
+git clone https://github.com/corruptbear/twitter_bots
 cd twitter_bots
 
 #create empty configuration files
